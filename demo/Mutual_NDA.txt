@@ -1,0 +1,17 @@
+NORTHWIND / CONTOSO MUTUAL NONDISCLOSURE AGREEMENT
+
+This Mutual Nondisclosure Agreement is made as of March 3, 2023, by and between
+Northwind Procurement LLC and Contoso Logistics, Inc.
+
+1. Purpose. The parties wish to explore a possible logistics services relationship.
+
+2. Confidentiality. Confidential Information means non-public business information
+disclosed by either party. Confidentiality obligations remain in effect for two (2) years
+after the date of disclosure.
+
+3. Governing Law. This agreement is governed by the laws of the State of Washington.
+
+4. No termination for convenience. This NDA may not be terminated for convenience
+while discussions are ongoing; it expires automatically on March 3, 2025.
+
+This document is fictional sample text for the RockHawk demonstration matter.
