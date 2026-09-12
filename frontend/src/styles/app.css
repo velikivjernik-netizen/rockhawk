@@ -12,7 +12,7 @@
   --ok: #7ea36b;
   --focus: #e6c27a;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-family: "Liberation Sans", "DejaVu Sans", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
   background: var(--bg);
 }
@@ -46,7 +46,7 @@ button, input, select, textarea { font: inherit; }
 }
 .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 28px; text-decoration: none; color: inherit; }
 .brand svg { width: 42px; height: 42px; }
-.brand-name { font-family: "Source Serif 4", Georgia, serif; font-size: 1.25rem; letter-spacing: 0.02em; }
+.brand-name { font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif; font-size: 1.25rem; letter-spacing: 0.02em; }
 .brand-tag { color: var(--muted); font-size: 0.78rem; }
 .nav-link {
   display: block;
@@ -61,7 +61,7 @@ button, input, select, textarea { font: inherit; }
 
 .main { padding: 28px 32px 48px; }
 .page-title {
-  font-family: "Source Serif 4", Georgia, serif;
+  font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif;
   font-size: 2rem;
   margin: 0 0 8px;
 }
@@ -86,7 +86,7 @@ button, input, select, textarea { font: inherit; }
 }
 .grid { display: grid; gap: 16px; }
 .matter-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-.matter-card h2 { font-family: "Source Serif 4", Georgia, serif; margin: 0 0 8px; font-size: 1.2rem; }
+.matter-card h2 { font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif; margin: 0 0 8px; font-size: 1.2rem; }
 .matter-card p { color: var(--muted); min-height: 3em; }
 
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
@@ -130,9 +130,9 @@ table.review th {
   top: 0;
   background: #202a35;
   font-size: 0.82rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   color: var(--muted);
+  min-width: 9rem;
 }
 .cell {
   min-width: 180px;
@@ -176,7 +176,7 @@ table.review th {
   padding: 24px;
 }
 .login-card { width: min(440px, 100%); }
-.login-card h1 { font-family: "Source Serif 4", Georgia, serif; }
+.login-card h1 { font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif; }
 
 .hot-dot {
   display: inline-block;

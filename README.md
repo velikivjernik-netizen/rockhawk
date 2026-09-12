@@ -112,6 +112,14 @@ cd frontend && npm test    # Vitest
 cd frontend && npx playwright test   # optional, needs a running UI
 ```
 
+## Screenshots
+
+![Login](docs/screenshots/01_login.png)
+
+![Review table](docs/screenshots/03_review_table.png)
+
+More captures live in [docs/screenshots](docs/screenshots).
+
 ## Docs
 
 - [Admin guide](docs/admin-guide.md)
