@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.config import get_settings
+from app.config_service import ensure_baseline
 from app.ingest import extract_pages
 from app.models import (
     Cell,
@@ -125,9 +126,19 @@ def seed_if_needed(db: Session) -> None:
             role=Role.ADMIN.value,
             must_change_password=True,
         )
+        admin.admin_scopes = [
+            "config.read",
+            "config.write",
+            "config.apply",
+            "ai.manage",
+            "users.manage",
+            "audit.read",
+        ]
         db.add(admin)
         db.flush()
         log_event(db, action="user.seeded", entity_type="user", entity_id=admin.id, actor_id=admin.id)
+
+    ensure_baseline(db, admin.id)
 
     if not settings.seed_demo:
         db.commit()
@@ -207,6 +218,9 @@ def default_column_specs() -> list[dict]:
             "name": "Governing law",
             "value_type": ColumnType.TEXT.value,
             "instruction": "Extract the governing-law jurisdiction. Use only the document text. If absent, Not found.",
+            "citation_policy": "when_quoting",
+            "model_role": "extraction",
+            "overwrite_policy": "skip_verified",
             "sort_order": 1,
         },
         {

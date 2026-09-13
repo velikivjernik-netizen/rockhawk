@@ -43,6 +43,7 @@ export type User = {
   name: string;
   role: string;
   must_change_password: boolean;
+  admin_scopes?: string[] | null;
 };
 
 export type DocumentOut = {
@@ -70,9 +71,20 @@ export type Column = {
   name: string;
   value_type: string;
   instruction: string;
+  enum_options?: string[] | null;
   condition_column_id: string | null;
   condition_equals: string | null;
+  sort_order?: number;
+  citation_policy?: string;
+  model_role?: string;
+  prompt_key?: string;
+  prompt_version?: string | null;
+  overwrite_policy?: string;
+  required?: boolean;
+  validation_json?: Record<string, unknown> | null;
 };
+
+export type ColumnDraft = Omit<Column, "id"> & { id?: string };
 
 export type Citation = {
   document_id: string;
@@ -115,8 +127,38 @@ export type TableDetail = {
   matter_id: string;
   name: string;
   description: string;
+  hot_include_flagged?: boolean;
+  hot_include_manual?: boolean;
+  hot_min_flagged?: number;
   columns: Column[];
   rows: Row[];
+};
+
+export type EffectiveSetting = {
+  key: string;
+  value: unknown;
+  source: string;
+  overridden: boolean;
+  restart_required: boolean;
+  secret: boolean;
+  editability: string;
+  risk: string;
+};
+
+export type RegistrySetting = {
+  key: string;
+  category: string;
+  category_label: string;
+  label: string;
+  description: string;
+  value_type: string;
+  default: unknown;
+  risk: string;
+  editability: string;
+  restart_required: boolean;
+  secret: boolean;
+  enum_options: string[] | null;
+  todo?: boolean;
 };
 
 export type HotItem = {

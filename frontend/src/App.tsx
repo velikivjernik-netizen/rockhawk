@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { getToken } from "./api/client";
+import { api, getToken, User } from "./api/client";
 import { Layout } from "./components/Layout";
+import { AdminPage } from "./pages/AdminPage";
 import { AuditPage } from "./pages/AuditPage";
 import { HotPage } from "./pages/HotPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -10,6 +12,18 @@ import { TablePage } from "./pages/TablePage";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   if (!getToken()) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireAdmin({ children }: { children: JSX.Element }) {
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    api<User>("/api/auth/me")
+      .then((user) => setAllowed(user.role === "admin"))
+      .catch(() => setAllowed(false));
+  }, []);
+  if (allowed === null) return <p>Checking administrator access…</p>;
+  if (!allowed) return <Navigate to="/matters" replace />;
   return children;
 }
 
@@ -24,6 +38,14 @@ export default function App() {
           </RequireAuth>
         }
       >
+        <Route
+          path="/admin"
+          element={
+            <RequireAdmin>
+              <AdminPage />
+            </RequireAdmin>
+          }
+        />
         <Route path="/matters" element={<MattersPage />} />
         <Route path="/matters/:matterId" element={<MatterHomePage />} />
         <Route path="/matters/:matterId/tables/:tableId" element={<TablePage />} />

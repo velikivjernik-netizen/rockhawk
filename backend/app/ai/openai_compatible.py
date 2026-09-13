@@ -21,8 +21,11 @@ SYSTEM = (
 class OpenAICompatibleProvider:
     name = "openai_compatible"
 
-    def __init__(self) -> None:
+    def __init__(self, base_url: str | None = None, api_key: str | None = None, model: str | None = None) -> None:
         self._fallback = MockProvider()
+        self.base_url = base_url
+        self.api_key = api_key
+        self.model = model
 
     def extract(self, **kwargs) -> ExtractionResult:
         pages = kwargs["pages"]
@@ -67,10 +70,13 @@ class OpenAICompatibleProvider:
     def _complete(self, user: str) -> dict | None:
         settings = get_settings()
         headers = {"Content-Type": "application/json"}
-        if settings.openai_compatible_api_key:
-            headers["Authorization"] = f"Bearer {settings.openai_compatible_api_key}"
+        api_key = self.api_key if self.api_key is not None else settings.openai_compatible_api_key
+        model = self.model or settings.openai_compatible_model
+        base_url = self.base_url or settings.openai_compatible_base_url
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         payload = {
-            "model": settings.openai_compatible_model,
+            "model": model,
             "temperature": 0,
             "messages": [
                 {"role": "system", "content": SYSTEM},
@@ -80,7 +86,7 @@ class OpenAICompatibleProvider:
         try:
             with httpx.Client(timeout=60.0) as client:
                 response = client.post(
-                    f"{settings.openai_compatible_base_url.rstrip('/')}/chat/completions",
+                    f"{base_url.rstrip('/')}/chat/completions",
                     headers=headers,
                     json=payload,
                 )

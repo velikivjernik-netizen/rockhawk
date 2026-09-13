@@ -22,6 +22,7 @@ Then:
 3. Click **Load demo matter**
 4. Open **Northwind Procurement v. Contoso Logistics — MSA diligence**
 5. Open **MSA diligence grid** and click **Run AI columns**
+6. Admins: open **Administration** (`/admin`) to change branding, AI roles/prompts, and review floors through draft → validate → apply
 
 OpenAPI / Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
@@ -56,7 +57,9 @@ Other fictional demo accounts (same warning):
 ## What works
 
 - Upload PDF, DOCX, TXT, CSV, XLSX, XLS, HTML, XML, PPTX, PPT, JPG/PNG, VCF, RTF, EML, MSG — **Upload files**, **Upload folder**, or drag-and-drop; page/section citations where the format has them
-- Seven typed AI columns (text, date, boolean, money, enum, plus a conditional text column)
+- Configurable review tables: column builder, NL suggest (approve before create), checklist CSV/XLSX import
+- Seven starter typed AI columns (text, date, boolean, money, enum, plus a conditional text column)
+- Administration Center (`/admin`) with a typed config registry, immutable revisions, AI provider/roles/prompts
 - Async column runs (`POST /api/tables/{id}/run` via Redis). Verified cells survive bulk reruns unless you opt in
 - Edit, verify, flag, comment, assign
 - Conditional columns (termination notice period runs only when termination-for-convenience is true)

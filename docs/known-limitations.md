@@ -13,6 +13,8 @@
 - **OIDC** returns 501 until issuer and client id are configured and a token exchange is implemented against your IdP.
 - **No MinIO daemon** is started; object bytes live on a Compose volume. Swap `STORAGE_DIR` for an S3-compatible client if you need it.
 - **Playwright** expects a running UI; it is not executed inside `docker compose up`.
-- **Scale.** The worker is a single pop-loop. Large productions should shard queues and add OCR, true pgvector indexes, and WORM audit.
+- **Scale.** The worker is a single pop-loop. `jobs.concurrency` is a documented target, not a live thread pool yet. Large productions should shard queues and add OCR, true pgvector indexes, and WORM audit.
+- **Admin categories** for SMTP notifications, live backup dumps, and defensible deletion are registry metadata / TODOs — they do not send mail or purge audit rows.
+- **Secret envelope** uses host `SECRET_KEY`. Prefer an external vault for production key material.
 
 The Origin reference commit was not available to this publisher. Behavior matches the stated acceptance criteria; pixel-level identity with that private tree is not claimed.

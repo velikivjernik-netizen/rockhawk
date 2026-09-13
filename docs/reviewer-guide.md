@@ -14,6 +14,10 @@ A queue under the drop zone shows each file as pending, uploading, processing, d
 
 ## Working a table
 
+On the matter home page, name the table and choose whether to include the starter diligence columns or start blank.
+
+On the table, **Add column** opens the column builder (label, instruction, type, enums, dependency, citation policy, model role, prompt version, overwrite policy). **Suggest** turns a typed description into proposed columns; **Import** reads a CSV/XLSX checklist. Nothing is created until you approve. Click a column header to edit it.
+
 1. Open a matter, then a review table
 2. Click **Run AI columns**
 3. Read the cell, then the pinpoint citation (document + page + quote)

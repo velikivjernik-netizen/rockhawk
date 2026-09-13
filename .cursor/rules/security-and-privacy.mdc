@@ -1,0 +1,16 @@
+---
+description: Security, privacy, and secret-handling rules
+alwaysApply: true
+---
+
+# Security and privacy
+
+- Authenticate every data API. Enforce RBAC and ethical walls server-side.
+- Never return raw secrets in APIs, diffs, audits, logs, exports, or browser
+  state after submit. Store `secret_reference` identifiers only.
+- `/admin` is admin-only. Non-admins must receive 403 from the API even if
+  they guess the URL.
+- Do not silently weaken security, privacy, audit completeness, legal hold,
+  or verified-cell preservation settings.
+- Redact Authorization headers and secret-shaped values in audit metadata.
+- Client documents must never be sent on AI “Test Connection” calls.

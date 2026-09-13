@@ -26,6 +26,7 @@ class UserOut(ORMModel):
     role: str
     is_active: bool
     must_change_password: bool
+    admin_scopes: list[str] | None = None
     created_at: datetime
 
 
@@ -122,6 +123,30 @@ class ColumnIn(BaseModel):
     condition_column_id: str | None = None
     condition_equals: str | None = None
     sort_order: int = 0
+    citation_policy: str = "when_quoting"
+    model_role: str = "extraction"
+    prompt_key: str = "column.extract"
+    prompt_version: str | None = None
+    overwrite_policy: str = "skip_verified"
+    required: bool = False
+    validation_json: dict[str, Any] | None = None
+
+
+class ColumnPatch(BaseModel):
+    name: str | None = None
+    value_type: str | None = None
+    instruction: str | None = None
+    enum_options: list[str] | None = None
+    condition_column_id: str | None = None
+    condition_equals: str | None = None
+    sort_order: int | None = None
+    citation_policy: str | None = None
+    model_role: str | None = None
+    prompt_key: str | None = None
+    prompt_version: str | None = None
+    overwrite_policy: str | None = None
+    required: bool | None = None
+    validation_json: dict[str, Any] | None = None
 
 
 class ColumnOut(ORMModel):
@@ -133,6 +158,21 @@ class ColumnOut(ORMModel):
     condition_column_id: str | None
     condition_equals: str | None
     sort_order: int
+    citation_policy: str = "when_quoting"
+    model_role: str = "extraction"
+    prompt_key: str = "column.extract"
+    prompt_version: str | None = None
+    overwrite_policy: str = "skip_verified"
+    required: bool = False
+    validation_json: dict[str, Any] | None = None
+
+
+class ColumnSuggestIn(BaseModel):
+    description: str = Field(min_length=3)
+
+
+class ColumnBulkIn(BaseModel):
+    columns: list[ColumnIn]
 
 
 class TableCreate(BaseModel):
@@ -142,11 +182,22 @@ class TableCreate(BaseModel):
     include_all_documents: bool = True
 
 
+class TablePatch(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    hot_include_flagged: bool | None = None
+    hot_include_manual: bool | None = None
+    hot_min_flagged: int | None = None
+
+
 class TableOut(ORMModel):
     id: str
     matter_id: str
     name: str
     description: str
+    hot_include_flagged: bool = True
+    hot_include_manual: bool = True
+    hot_min_flagged: int = 1
     created_at: datetime
     columns: list[ColumnOut] = []
 
@@ -244,3 +295,33 @@ class HotItem(BaseModel):
     is_hot: bool
     table_id: str
     table_name: str
+
+
+class AdminDraftIn(BaseModel):
+    changes: dict[str, Any]
+    expected_revision_id: str | None = None
+
+
+class AdminApplyIn(BaseModel):
+    reason: str = Field(min_length=8)
+    confirm: bool = False
+    expected_revision_id: str | None = None
+
+
+class AdminRollbackIn(BaseModel):
+    reason: str = Field(min_length=8)
+
+
+class AdminApprovalIn(BaseModel):
+    decision: str = "approved"
+
+
+class AdminImportIn(BaseModel):
+    bundle: dict[str, Any]
+    dry_run: bool = True
+
+
+class PromptVersionIn(BaseModel):
+    prompt_key: str
+    body: str = Field(min_length=8)
+    note: str = ""

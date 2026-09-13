@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, Cell, TableDetail, User } from "../api/client";
+import { api, Cell, Column, TableDetail, User } from "../api/client";
+import { ColumnBuilder } from "../components/ColumnBuilder";
 
 export function TablePage() {
   const { matterId, tableId } = useParams();
@@ -9,8 +10,12 @@ export function TablePage() {
   const [users, setUsers] = useState<User[]>([]);
   const [question, setQuestion] = useState("Which documents are governed by Delaware law?");
   const [askAnswer, setAskAnswer] = useState("");
+  const [askCites, setAskCites] = useState<{ document_name?: string; page?: number; quote?: string; cell_id?: string }[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [editingColumn, setEditingColumn] = useState<Column | null>(null);
+  const [filter, setFilter] = useState("");
 
   async function refresh() {
     if (!tableId) return;
@@ -77,12 +82,16 @@ export function TablePage() {
 
   async function ask(event: FormEvent) {
     event.preventDefault();
-    const result = await api<{ messages: { role: string; body: string }[] }>(`/api/tables/${tableId}/ask`, {
-      method: "POST",
-      body: JSON.stringify({ question }),
-    });
+    const result = await api<{ messages: { role: string; body: string; citations?: { document_name?: string; page?: number; quote?: string }[] }[] }>(
+      `/api/tables/${tableId}/ask`,
+      {
+        method: "POST",
+        body: JSON.stringify({ question }),
+      },
+    );
     const assistant = [...result.messages].reverse().find((m) => m.role === "assistant");
     setAskAnswer(assistant?.body || "");
+    setAskCites(assistant?.citations || []);
   }
 
   const selectedColumn = useMemo(
@@ -107,13 +116,63 @@ export function TablePage() {
         <button className="btn ghost" type="button" onClick={() => run(true)}>
           Rerun including verified
         </button>
+        <button
+          className="btn secondary"
+          type="button"
+          onClick={() => {
+            setEditingColumn(null);
+            setBuilderOpen(true);
+          }}
+        >
+          Add column
+        </button>
         <button className="btn secondary" type="button" onClick={() => downloadExport("csv")}>
           Export CSV
         </button>
         <button className="btn secondary" type="button" onClick={() => downloadExport("xlsx")}>
           Export XLSX
         </button>
+        <label className="field" style={{ minWidth: 200 }}>
+          Filter rows
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Document or cell text" />
+        </label>
       </div>
+      <details className="card" style={{ marginBottom: 12 }}>
+        <summary>Hot Review criteria for this table</summary>
+        <form
+          className="toolbar"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            api(`/api/tables/${tableId}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                hot_include_flagged: data.get("hot_include_flagged") === "on",
+                hot_include_manual: data.get("hot_include_manual") === "on",
+                hot_min_flagged: Number(data.get("hot_min_flagged") || 1),
+              }),
+            })
+              .then(refresh)
+              .catch((err) => setError(err.message));
+          }}
+        >
+          <label className="checkbox">
+            <input type="checkbox" name="hot_include_flagged" defaultChecked={table.hot_include_flagged !== false} />
+            Include flagged cells
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" name="hot_include_manual" defaultChecked={table.hot_include_manual !== false} />
+            Include manual hot marks
+          </label>
+          <label className="field">
+            Minimum flagged cells
+            <input name="hot_min_flagged" type="number" min={1} defaultValue={table.hot_min_flagged ?? 1} />
+          </label>
+          <button className="btn ghost" type="submit">
+            Save criteria
+          </button>
+        </form>
+      </details>
       <div className="table-wrap" role="region" aria-label="Review table">
         <table className="review">
           <thead>
@@ -121,14 +180,36 @@ export function TablePage() {
               <th scope="col">Document</th>
               {columns.map((col) => (
                 <th key={col.id} scope="col">
-                  {col.name}
-                  <div className="status">{col.value_type}{col.condition_column_id ? " · conditional" : ""}</div>
+                  <button
+                    type="button"
+                    className="cell-value"
+                    style={{ background: "none", border: 0, color: "inherit", textAlign: "left", cursor: "pointer" }}
+                    onClick={() => {
+                      setEditingColumn(col);
+                      setBuilderOpen(true);
+                    }}
+                  >
+                    {col.name}
+                  </button>
+                  <div className="status">
+                    {col.value_type}
+                    {col.condition_column_id ? " · conditional" : ""}
+                    {col.model_role ? ` · ${col.model_role}` : ""}
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {table.rows.map((row) => (
+            {table.rows
+              .filter((row) => {
+                if (!filter.trim()) return true;
+                const needle = filter.toLowerCase();
+                const doc = row.document?.filename?.toLowerCase() || "";
+                const cells = row.cells.map((cell) => cell.value.toLowerCase()).join(" ");
+                return doc.includes(needle) || cells.includes(needle);
+              })
+              .map((row) => (
               <tr key={row.id}>
                 <th scope="row">
                   {row.is_hot && <span className="hot-dot" aria-label="Hot document" />}
@@ -175,7 +256,25 @@ export function TablePage() {
           </button>
         </form>
         {askAnswer && <pre className="cell-value">{askAnswer}</pre>}
+        {askCites.map((cite, index) => (
+          <p key={index} className="cite">
+            {cite.document_name} p.{cite.page}: “{cite.quote}”
+          </p>
+        ))}
       </section>
+
+      {builderOpen && tableId && (
+        <ColumnBuilder
+          tableId={tableId}
+          columns={columns}
+          initial={editingColumn}
+          onClose={() => {
+            setBuilderOpen(false);
+            setEditingColumn(null);
+          }}
+          onChanged={refresh}
+        />
+      )}
 
       {selected && selectedColumn && (
         <aside className="drawer" aria-label="Cell detail">

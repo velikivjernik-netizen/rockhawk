@@ -62,6 +62,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default=Role.REVIEWER.value)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    admin_scopes: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     memberships: Mapped[list[MatterMember]] = relationship(back_populates="user")
@@ -152,6 +153,9 @@ class ReviewTable(Base):
     matter_id: Mapped[str] = mapped_column(ForeignKey("matters.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text, default="")
+    hot_include_flagged: Mapped[bool] = mapped_column(Boolean, default=True)
+    hot_include_manual: Mapped[bool] = mapped_column(Boolean, default=True)
+    hot_min_flagged: Mapped[int] = mapped_column(Integer, default=1)
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -174,6 +178,13 @@ class TableColumn(Base):
     condition_column_id: Mapped[str | None] = mapped_column(ForeignKey("table_columns.id"), nullable=True)
     condition_equals: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    citation_policy: Mapped[str] = mapped_column(String(32), default="when_quoting")
+    model_role: Mapped[str] = mapped_column(String(32), default="extraction")
+    prompt_key: Mapped[str] = mapped_column(String(128), default="column.extract")
+    prompt_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    overwrite_policy: Mapped[str] = mapped_column(String(32), default="skip_verified")
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    validation_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     table: Mapped[ReviewTable] = relationship(back_populates="columns")
     condition_column: Mapped[TableColumn | None] = relationship(remote_side="TableColumn.id")
@@ -268,4 +279,124 @@ class AuditEvent(Base):
     entity_id: Mapped[str] = mapped_column(String(36), default="")
     matter_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ConfigurationRevision(Base):
+    __tablename__ = "configuration_revisions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    number: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="applied")
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey("configuration_revisions.id"), nullable=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    values: Mapped[list[ConfigurationValue]] = relationship(back_populates="revision", cascade="all, delete-orphan")
+
+
+class ConfigurationValue(Base):
+    __tablename__ = "configuration_values"
+    __table_args__ = (UniqueConstraint("revision_id", "key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    revision_id: Mapped[str] = mapped_column(ForeignKey("configuration_revisions.id", ondelete="CASCADE"), index=True)
+    key: Mapped[str] = mapped_column(String(128), index=True)
+    value_json: Mapped[dict | list | str | int | float | bool | None] = mapped_column(JSON, nullable=True)
+
+    revision: Mapped[ConfigurationRevision] = relationship(back_populates="values")
+
+
+class ConfigurationPointer(Base):
+    """Singleton active-revision pointer (id='global')."""
+
+    __tablename__ = "configuration_pointers"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="global")
+    active_revision_id: Mapped[str | None] = mapped_column(ForeignKey("configuration_revisions.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ConfigurationDraft(Base):
+    __tablename__ = "configuration_drafts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    status: Mapped[str] = mapped_column(String(32), default="open")
+    proposed_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    validation_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    preview_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    expected_revision_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    confirm_phrase: Mapped[str] = mapped_column(String(64), default="")
+
+
+class ConfigurationChangeRequest(Base):
+    __tablename__ = "configuration_change_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    draft_id: Mapped[str] = mapped_column(ForeignKey("configuration_drafts.id", ondelete="CASCADE"), index=True)
+    requested_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ConfigurationApproval(Base):
+    __tablename__ = "configuration_approvals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    draft_id: Mapped[str] = mapped_column(ForeignKey("configuration_drafts.id", ondelete="CASCADE"), index=True)
+    approver_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    decision: Mapped[str] = mapped_column(String(16), default="approved")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ConfigurationApplyEvent(Base):
+    __tablename__ = "configuration_apply_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    revision_id: Mapped[str | None] = mapped_column(ForeignKey("configuration_revisions.id"), nullable=True)
+    draft_id: Mapped[str | None] = mapped_column(ForeignKey("configuration_drafts.id"), nullable=True)
+    actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(32))
+    detail_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SecretReference(Base):
+    __tablename__ = "secret_references"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(128))
+    ciphertext: Mapped[str] = mapped_column(Text, default="")
+    hint: Mapped[str] = mapped_column(String(16), default="••••")
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FeatureFlag(Base):
+    __tablename__ = "feature_flags"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    key: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PromptVersion(Base):
+    __tablename__ = "prompt_versions"
+    __table_args__ = (UniqueConstraint("prompt_key", "version"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    prompt_key: Mapped[str] = mapped_column(String(128), index=True)
+    version: Mapped[str] = mapped_column(String(32))
+    body: Mapped[str] = mapped_column(Text)
+    note: Mapped[str] = mapped_column(Text, default="")
+    parent_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

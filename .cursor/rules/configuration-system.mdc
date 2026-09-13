@@ -1,0 +1,19 @@
+---
+description: Configuration registry and apply workflow
+globs: backend/app/config*.py,backend/app/api/admin.py,frontend/src/pages/Admin*.tsx
+---
+
+# Configuration system
+
+The typed registry in `app/config_registry.py` is the catalog of manageable
+settings. Do not invent ad-hoc settings outside it.
+
+Workflow for consequential keys: draft → validate → preview impact → test
+(where applicable) → confirm → atomic apply → verify → audit. Rollback
+creates a **new** revision; never mutate an applied revision.
+
+Precedence: bootstrap/env > active global revision > registry default.
+Optimistic concurrency: apply must name the expected active revision id.
+
+Classify keys by risk (`low` / `medium` / `high` / `bootstrap`) and
+editability. Bootstrap and dangerous values are read-only in the UI.

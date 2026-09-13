@@ -238,7 +238,22 @@ table.review th {
 .status.uploading,
 .status.processing { color: var(--focus); }
 
+.drawer-wide { width: min(520px, 100vw); }
+.checkbox { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); }
+.proposal-list { list-style: none; padding: 0; }
+.proposal-list li { margin-bottom: 10px; }
+.admin-layout { display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: 20px; }
+.admin-nav ul { list-style: none; padding: 0; }
+.admin-nav .nav-link { width: 100%; text-align: left; background: none; border: 0; }
+.admin-table th[scope="row"] { min-width: 16rem; font-weight: 600; color: var(--ink); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.compare pre { white-space: pre-wrap; background: #10161c; padding: 10px; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+  .admin-layout { grid-template-columns: 1fr; }
 }

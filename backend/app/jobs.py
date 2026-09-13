@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.ai.factory import get_provider
 from app.audit import log_event
 from app.config import get_settings
+from app.config_service import effective_bool, ensure_baseline
 from app.db import SessionLocal
 from app.models import (
     AskMessage,
@@ -77,6 +78,8 @@ def _run_table(db: Session, job: dict[str, Any]) -> None:
     if table is None:
         return
     include_verified = bool(job.get("include_verified"))
+    ensure_baseline(db)
+    preserve_verified = effective_bool(db, "review.preserve_verified_cells")
     row_filter = set(job.get("row_ids") or [])
     col_filter = set(job.get("column_ids") or [])
     rows = list(table.rows)
@@ -92,14 +95,16 @@ def _run_table(db: Session, job: dict[str, Any]) -> None:
             cell = cells_by_col.get(column.id)
             if cell is None:
                 continue
-            if cell.verified and not include_verified:
+            if cell.verified and preserve_verified and not include_verified:
+                continue
+            if cell.verified and getattr(column, "overwrite_policy", "skip_verified") != "overwrite_all" and not include_verified:
                 continue
             if not _condition_met(column, cells_by_col):
                 cell.status = CellStatus.NOT_FOUND.value
                 cell.value = "Not found"
                 cell.citations = []
                 cell.evidence_quote = "Conditional column skipped: prerequisite not met."
-                cell.provider = get_provider().name
+                cell.provider = get_provider(db, role=getattr(column, "model_role", None) or "extraction").name
                 continue
             _extract_cell(db, cell, column, row)
 
@@ -134,8 +139,8 @@ def _extract_cell(db: Session, cell: Cell, column: TableColumn, row: TableRow) -
     pages = db.scalars(
         select(DocumentPage).where(DocumentPage.document_id == row.document_id).order_by(DocumentPage.page_number)
     ).all()
-    provider = get_provider()
-    result = provider.extract(
+            provider = get_provider(db, role=getattr(column, "model_role", None) or "extraction")
+            result = provider.extract(
         column_name=column.name,
         value_type=column.value_type,
         instruction=column.instruction,
@@ -169,7 +174,7 @@ def _run_ask(db: Session, job: dict[str, Any]) -> None:
         return
     question = job["question"]
     snippets = _grounding_snippets(table, question)
-    result = get_provider().answer(question=question, snippets=snippets)
+    result = get_provider(db, role="synthesis").answer(question=question, snippets=snippets)
     db.add(
         AskMessage(
             thread_id=thread.id,
@@ -211,6 +216,8 @@ def _grounding_snippets(table: ReviewTable, question: str) -> list[dict]:
                     {
                         "label": f"{filename} / {cell.column.name if cell.column else 'cell'}",
                         "text": cell.value,
+                        "cell_id": cell.id,
+                        "column": cell.column.name if cell.column else "",
                         "document_id": row.document_id,
                         "document_name": filename,
                         "page": (cell.citations or [{}])[0].get("page") if cell.citations else None,

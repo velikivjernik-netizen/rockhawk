@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ask, audit, auth, cells, documents, export, matters, tables, users
+from app.api import admin, ask, audit, auth, cells, documents, export, matters, tables, users
 from app.config import get_settings
 from app import db as dbmod
 from app.db import Base
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(ask.router, prefix="/api")
     app.include_router(export.router, prefix="/api")
     app.include_router(audit.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
 
     @app.get("/api/health")
     def health() -> dict:

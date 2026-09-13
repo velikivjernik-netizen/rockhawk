@@ -1,0 +1,23 @@
+---
+description: RockHawk product and architecture invariants
+alwaysApply: true
+---
+
+# RockHawk core
+
+RockHawk is an independently designed local attorney-assistance review tool.
+It is conceptually comparable to enterprise review tables, but branding, UI,
+copy, prompts, and code must remain original. Do not copy Harvey (or other
+vendor) trade dress, product names, screenshots, or prompt text.
+
+The product is **not** an autonomous legal decision-maker. AI output is a
+draft for a licensed attorney. Preserve human-review floors (verified cells,
+QC, audit).
+
+Stack: FastAPI + SQLAlchemy backend, React + TypeScript frontend, Postgres
+(or SQLite in tests), Redis jobs, local object storage. Prefer extending this
+stack over rewriting.
+
+Preserve multi-file / folder upload and the expanded ingestion allowlist
+(`.pdf .docx .txt .md .csv .xlsx .xls .htm .html .xml .pptx .ppt .jpg .jpeg
+.png .vcf .vcard .rtf .eml .msg`).

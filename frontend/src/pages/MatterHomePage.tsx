@@ -11,6 +11,8 @@ export function MatterHomePage() {
   const [documents, setDocuments] = useState<DocumentOut[]>([]);
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [error, setError] = useState("");
+  const [tableName, setTableName] = useState("Review table");
+  const [starter, setStarter] = useState(true);
 
   async function refreshDocuments() {
     if (!matterId) return;
@@ -35,7 +37,11 @@ export function MatterHomePage() {
   async function createTable() {
     const created = await api<TableDetail>(`/api/matters/${matterId}/tables`, {
       method: "POST",
-      body: JSON.stringify({ name: "Review table", include_all_documents: true }),
+      body: JSON.stringify({
+        name: tableName || "Review table",
+        include_all_documents: true,
+        columns: starter ? undefined : [],
+      }),
     });
     setTables(await api<TableSummary[]>(`/api/matters/${matterId}/tables`));
     window.location.assign(`/matters/${matterId}/tables/${created.id}`);
@@ -67,9 +73,26 @@ export function MatterHomePage() {
       </section>
       <section className="card">
         <h2>Review tables</h2>
-        <button className="btn" type="button" onClick={() => createTable().catch((err) => setError(err.message))}>
-          Create review table
-        </button>
+        <form
+          className="grid"
+          style={{ maxWidth: 420, marginBottom: 12 }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            createTable().catch((err) => setError(err.message));
+          }}
+        >
+          <label className="field">
+            Table name
+            <input value={tableName} onChange={(e) => setTableName(e.target.value)} required />
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" checked={starter} onChange={(e) => setStarter(e.target.checked)} />
+            Include starter diligence columns (you can still add more)
+          </label>
+          <button className="btn" type="submit">
+            Create review table
+          </button>
+        </form>
         <ul>
           {tables.map((table) => (
             <li key={table.id}>

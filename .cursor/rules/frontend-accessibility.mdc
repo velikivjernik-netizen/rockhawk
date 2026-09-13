@@ -1,0 +1,13 @@
+---
+description: Frontend accessibility and admin/review UI
+globs: frontend/src/**/*.{tsx,css}
+---
+
+# Frontend accessibility
+
+- Semantic landmarks (`header`, `main`, `nav`, `table`).
+- Visible focus rings; do not remove outlines.
+- Associate every input with a label (`htmlFor` / `aria-label`).
+- Honor `prefers-reduced-motion`.
+- Admin and review tables are dense but keyboard reachable.
+- Do not ship toast-only errors; keep a textual status region.

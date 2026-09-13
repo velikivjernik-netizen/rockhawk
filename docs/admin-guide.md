@@ -12,6 +12,16 @@ RockHawk is intended for a firm-controlled host (a laptop or an internal Ubuntu 
 
 If you already booted with `ChangeMeNow!`, use **Change password** (`POST /api/auth/change-password`) immediately.
 
+## Administration Center
+
+Open [http://localhost:8080/admin](http://localhost:8080/admin) (or Vite `:5173/admin`) while signed in as an **admin**. Ordinary reviewer and viewer accounts receive **403** from `/api/admin/*` and are redirected away from the UI.
+
+Demo admin: `admin@rockhawk.local` / `ChangeMeNow!` with scopes `config.read`, `config.write`, `config.apply`, `ai.manage`, `users.manage`, `audit.read`. Change the password before any shared host.
+
+Workflow: edit a draft value → **Validate & preview** → enter a reason → **Confirm and apply**. Rollback from category 18 (revision history). Export never includes raw secrets. Import is dry-run only; accepted keys must go through a draft.
+
+See [configuration.md](configuration.md) for precedence, floors, and env-only leftovers.
+
 ## Users and roles
 
 | Role | Capability |

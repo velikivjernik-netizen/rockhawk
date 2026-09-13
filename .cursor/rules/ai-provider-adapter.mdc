@@ -1,0 +1,19 @@
+---
+description: AI provider adapter and model roles
+globs: backend/app/ai/**/*.py,backend/app/api/admin.py
+---
+
+# AI provider adapter
+
+Default integration is Open WebUI via the OpenAI-compatible adapter
+(`AI_PROVIDER=openai_compatible`). `mock` remains the offline/dev default.
+
+Six model roles are assigned independently: orchestrator, triage, extraction,
+qc, synthesis, embeddings. A role may point at a discovered model id; it
+must not assume a single global model.
+
+Test Connection and model discovery use a tiny synthetic ping. Never attach
+matter documents or review-table text to those calls.
+
+Prompt versions are immutable once saved; edits create a new version so
+column runs retain lineage.

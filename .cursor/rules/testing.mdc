@@ -1,0 +1,13 @@
+---
+description: Testing expectations for RockHawk
+globs: "**/*test*.py,**/*test*.tsx,backend/tests/**,frontend/src/**/*.test.*"
+---
+
+# Testing
+
+- Backend: pytest with SQLite + `Base.metadata.create_all` for unit/API tests.
+- New config core, admin auth, and column-builder endpoints need tests.
+- Frontend: Vitest + Testing Library. Exclude `e2e/**` from the unit glob.
+- Playwright covers at least one admin happy path when the stack is up.
+- Do not claim a setting is applied unless a consumer read-path assertion
+  proves the new effective value.

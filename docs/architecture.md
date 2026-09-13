@@ -36,7 +36,8 @@ SQLite is a supported fallback when `DATABASE_URL` starts with `sqlite`. Embeddi
 1. JWT bearer token from `POST /api/auth/login`
 2. Matter ACL: ethical wall first, then membership (admins bypass membership, not walls)
 3. Mutations write an `audit_events` row in the same transaction
-4. Column runs enqueue `rockhawk:jobs`; the worker loads page text and calls `app.ai.get_provider()`
+4. Column runs enqueue `rockhawk:jobs`; the worker loads page text and calls `app.ai.get_provider(db, role=…)`
+5. `/admin` reads the configuration registry and applies immutable revisions (`config_service.get_effective`)
 
 ## AI contract
 
