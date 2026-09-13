@@ -139,8 +139,8 @@ def _extract_cell(db: Session, cell: Cell, column: TableColumn, row: TableRow) -
     pages = db.scalars(
         select(DocumentPage).where(DocumentPage.document_id == row.document_id).order_by(DocumentPage.page_number)
     ).all()
-            provider = get_provider(db, role=getattr(column, "model_role", None) or "extraction")
-            result = provider.extract(
+    provider = get_provider(db, role=getattr(column, "model_role", None) or "extraction")
+    result = provider.extract(
         column_name=column.name,
         value_type=column.value_type,
         instruction=column.instruction,

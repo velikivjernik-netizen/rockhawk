@@ -47,7 +47,7 @@ def test_vertical_slice_apply_audit_rollback(client: TestClient, auth_headers: d
     refused = client.post(
         f"/api/admin/drafts/{draft_id}/apply",
         headers=auth_headers,
-        json={"reason": "short", "confirm": False, "expected_revision_id": revision_id},
+        json={"reason": "Trying to apply without an explicit confirm", "confirm": False, "expected_revision_id": revision_id},
     )
     assert refused.status_code == 400
 
