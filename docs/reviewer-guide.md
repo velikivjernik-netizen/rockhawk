@@ -2,6 +2,16 @@
 
 RockHawk organizes a matter’s documents into a **review table**. Each row is a document. Each column is a typed question the model tries to answer from that document’s pages.
 
+## Adding documents
+
+On the matter home page, PDF, DOCX, and TXT files can be added in one action:
+
+- **Upload files** — the file picker allows multiple files (Shift/Ctrl-click, or select a range). A single file still works.
+- **Upload folder** — choose a directory; RockHawk queues every supported file inside it (including subfolders).
+- **Drag and drop** — drop several files, or drop a folder, onto the dashed target.
+
+A queue under the drop zone shows each file as pending, uploading, processing, done, duplicate, or error. Uploads run a few at a time so the page stays usable. Duplicates (same bytes already on the matter) are skipped and labeled. Unsupported types never block the rest of the batch.
+
 ## Working a table
 
 1. Open a matter, then a review table

@@ -40,6 +40,80 @@ def test_viewer_cannot_run(client: TestClient) -> None:
     assert run.status_code == 403
 
 
+def test_batch_upload_partial_success_and_duplicates(client: TestClient, auth_headers: dict) -> None:
+    matter_id, _table_id = _matter_and_table(client, auth_headers)
+    good_a = ("batch_a.txt", BytesIO(b"Party A agrees to venue in Oregon.\n"), "text/plain")
+    good_b = ("batch_b.txt", BytesIO(b"This letter has no dollar cap.\n"), "text/plain")
+    bad = ("notes.png", BytesIO(b"not-a-document"), "image/png")
+    batch = client.post(
+        f"/api/matters/{matter_id}/documents/batch",
+        headers=auth_headers,
+        files=[("files", good_a), ("files", good_b), ("files", bad)],
+    )
+    assert batch.status_code == 200, batch.text
+    body = batch.json()
+    assert body["accepted"] == 2
+    assert body["failed"] == 1
+    statuses = {row["filename"]: row["status"] for row in body["results"]}
+    assert statuses["batch_a.txt"] == "created"
+    assert statuses["batch_b.txt"] == "created"
+    assert statuses["notes.png"] == "error"
+    assert any(row["document"] and row["document"]["id"] for row in body["results"] if row["status"] == "created")
+
+    again = client.post(
+        f"/api/matters/{matter_id}/documents/batch",
+        headers=auth_headers,
+        files=[("files", ("batch_a.txt", BytesIO(b"Party A agrees to venue in Oregon.\n"), "text/plain"))],
+    )
+    assert again.status_code == 200
+    assert again.json()["duplicates"] == 1
+    assert again.json()["results"][0]["status"] == "duplicate"
+
+    listed = client.get(f"/api/matters/{matter_id}/documents", headers=auth_headers).json()
+    names = {doc["filename"] for doc in listed}
+    assert "batch_a.txt" in names
+    assert "batch_b.txt" in names
+    assert "notes.png" not in names
+
+    audit = client.get(f"/api/audit?matter_id={matter_id}", headers=auth_headers).json()
+    uploaded = [event for event in audit if event["action"] == "document.uploaded"]
+    assert len(uploaded) >= 2
+
+
+def test_single_upload_duplicate_is_conflict(client: TestClient, auth_headers: dict) -> None:
+    matter_id, _table_id = _matter_and_table(client, auth_headers)
+    payload = ("once.txt", BytesIO(b"Unique side letter about Idaho venue.\n"), "text/plain")
+    first = client.post(f"/api/matters/{matter_id}/documents", headers=auth_headers, files={"file": payload})
+    assert first.status_code == 201, first.text
+    second = client.post(
+        f"/api/matters/{matter_id}/documents",
+        headers=auth_headers,
+        files={"file": ("once.txt", BytesIO(b"Unique side letter about Idaho venue.\n"), "text/plain")},
+    )
+    assert second.status_code == 409
+
+
+def test_viewer_cannot_upload(client: TestClient) -> None:
+    token = client.post("/api/auth/login", json={"email": "viewer@rockhawk.local", "password": "ViewerDemo1!"}).json()[
+        "access_token"
+    ]
+    headers = {"Authorization": f"Bearer {token}"}
+    matters = client.get("/api/matters", headers=headers).json()
+    matter_id = matters[0]["id"]
+    single = client.post(
+        f"/api/matters/{matter_id}/documents",
+        headers=headers,
+        files={"file": ("nope.txt", BytesIO(b"secret"), "text/plain")},
+    )
+    assert single.status_code == 403
+    batch = client.post(
+        f"/api/matters/{matter_id}/documents/batch",
+        headers=headers,
+        files=[("files", ("nope.txt", BytesIO(b"secret"), "text/plain"))],
+    )
+    assert batch.status_code == 403
+
+
 def test_upload_txt_and_page_citations(client: TestClient, auth_headers: dict) -> None:
     matter_id, _table_id = _matter_and_table(client, auth_headers)
     content = b"Governing law. This side letter is governed by the laws of the State of Oregon.\n"

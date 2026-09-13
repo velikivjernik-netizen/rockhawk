@@ -1,25 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.access import require_matter_read, require_matter_write
-from app.audit import log_event
 from app.db import get_db
 from app.deps import get_current_user
-from app.ingest import extract_pages
-from app.models import Document, DocumentPage, Matter, TableRow, User
-from app.schemas import DocumentOut, PageOut
-from app.seed import _toy_embedding
-from app.storage import read_bytes, save_bytes
+from app.documents import UploadError, ingest_bytes
+from app.models import Document, DocumentPage, Matter, User
+from app.schemas import BatchFileResult, BatchUploadOut, DocumentOut, PageOut
+from app.storage import read_bytes
 
 router = APIRouter(tags=["documents"])
-
-ALLOWED = {
-    "application/pdf": ".pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-    "text/plain": ".txt",
-}
 
 
 @router.get("/matters/{matter_id}/documents", response_model=list[DocumentOut])
@@ -36,48 +28,76 @@ async def upload_document(
     user: User = Depends(get_current_user),
 ) -> Document:
     require_matter_write(db, user, matter_id)
-    if db.get(Matter, matter_id) is None:
+    matter = db.get(Matter, matter_id)
+    if matter is None:
         raise HTTPException(status_code=404, detail="Matter not found")
     data = await file.read()
-    filename = file.filename or "upload.bin"
     try:
-        pages = extract_pages(filename, data)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    relative = f"{matter_id}/{filename}"
-    save_bytes(relative, data)
-    document = Document(
-        matter_id=matter_id,
-        filename=filename,
-        content_type=file.content_type or "application/octet-stream",
-        storage_path=relative,
-        page_count=len(pages),
-        uploaded_by_id=user.id,
-    )
-    db.add(document)
-    db.flush()
-    for number, text in pages:
-        db.add(DocumentPage(document_id=document.id, page_number=number, text=text, embedding=_toy_embedding(text)))
-    for table in db.get(Matter, matter_id).tables:
-        row = TableRow(table_id=table.id, document_id=document.id)
-        db.add(row)
-        db.flush()
-        for column in table.columns:
-            from app.models import Cell
-
-            db.add(Cell(row_id=row.id, column_id=column.id))
-    log_event(
-        db,
-        action="document.uploaded",
-        entity_type="document",
-        entity_id=document.id,
-        actor_id=user.id,
-        matter_id=matter_id,
-        payload={"filename": filename, "pages": len(pages)},
-    )
+        document = ingest_bytes(
+            db,
+            matter=matter,
+            user=user,
+            filename=file.filename or "upload.bin",
+            content_type=file.content_type,
+            data=data,
+        )
+    except UploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     db.commit()
     db.refresh(document)
     return document
+
+
+@router.post("/matters/{matter_id}/documents/batch", response_model=BatchUploadOut)
+async def upload_documents_batch(
+    matter_id: str,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BatchUploadOut:
+    require_matter_write(db, user, matter_id)
+    matter = db.get(Matter, matter_id)
+    if matter is None:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    if not files:
+        raise HTTPException(status_code=400, detail="No files in the batch")
+
+    results: list[BatchFileResult] = []
+    accepted = failed = duplicates = 0
+    for upload in files:
+        filename = upload.filename or "upload.bin"
+        data = await upload.read()
+        try:
+            document = ingest_bytes(
+                db,
+                matter=matter,
+                user=user,
+                filename=filename,
+                content_type=upload.content_type,
+                data=data,
+            )
+            db.commit()
+            db.refresh(document)
+            accepted += 1
+            results.append(
+                BatchFileResult(filename=filename, status="created", document=DocumentOut.model_validate(document))
+            )
+        except UploadError as exc:
+            db.rollback()
+            matter = db.get(Matter, matter_id)
+            if exc.code == "duplicate":
+                duplicates += 1
+                status = "duplicate"
+            else:
+                failed += 1
+                status = "error"
+            results.append(BatchFileResult(filename=filename, status=status, detail=exc.message))
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            matter = db.get(Matter, matter_id)
+            failed += 1
+            results.append(BatchFileResult(filename=filename, status="error", detail=str(exc)))
+    return BatchUploadOut(accepted=accepted, failed=failed, duplicates=duplicates, results=results)
 
 
 @router.get("/documents/{document_id}", response_model=DocumentOut)

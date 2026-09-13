@@ -55,7 +55,7 @@ Other fictional demo accounts (same warning):
 
 ## What works
 
-- Upload PDF, DOCX, TXT with page-level citations
+- Upload PDF, DOCX, TXT with page-level citations — **Upload files** (multi-select), **Upload folder**, or drag-and-drop several files/a folder
 - Seven typed AI columns (text, date, boolean, money, enum, plus a conditional text column)
 - Async column runs (`POST /api/tables/{id}/run` via Redis). Verified cells survive bulk reruns unless you opt in
 - Edit, verify, flag, comment, assign

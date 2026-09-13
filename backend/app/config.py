@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080"
     log_level: str = "INFO"
+    max_upload_bytes: int = 50 * 1024 * 1024
 
     @property
     def cors_origin_list(self) -> list[str]:

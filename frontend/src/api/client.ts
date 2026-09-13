@@ -45,6 +45,17 @@ export type User = {
   must_change_password: boolean;
 };
 
+export type DocumentOut = {
+  id: string;
+  matter_id: string;
+  filename: string;
+  content_type: string;
+  page_count: number;
+  status: string;
+  content_hash?: string;
+  byte_size?: number;
+};
+
 export type Matter = {
   id: string;
   name: string;

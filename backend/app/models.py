@@ -120,6 +120,8 @@ class Document(Base):
     filename: Mapped[str] = mapped_column(String(512))
     content_type: Mapped[str] = mapped_column(String(128), default="application/octet-stream")
     storage_path: Mapped[str] = mapped_column(String(1024))
+    content_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
+    byte_size: Mapped[int] = mapped_column(Integer, default=0)
     page_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="ready")
     uploaded_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))

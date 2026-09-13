@@ -187,6 +187,57 @@ table.review th {
   margin-right: 6px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dropzone {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  color: var(--muted);
+  background: #10161c;
+  margin: 8px 0 12px;
+}
+.dropzone.active {
+  border-color: var(--gold);
+  background: rgba(212, 162, 76, 0.08);
+  color: var(--ink);
+}
+
+.upload-queue {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 16px;
+}
+.upload-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.upload-name { font-weight: 500; }
+.upload-item.done .status,
+.status.done { color: var(--ok); }
+.upload-item.error .status,
+.status.error { color: var(--danger); }
+.upload-item.duplicate .status,
+.status.duplicate { color: var(--gold); }
+.upload-item.uploading .status,
+.upload-item.processing .status,
+.status.uploading,
+.status.processing { color: var(--focus); }
+
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }

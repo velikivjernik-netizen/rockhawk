@@ -1,22 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, Matter, TableDetail } from "../api/client";
+import { api, DocumentOut, Matter, TableDetail } from "../api/client";
+import { DocumentUploader } from "../components/DocumentUploader";
 
-type Document = { id: string; filename: string; page_count: number; content_type: string };
 type TableSummary = { id: string; name: string; description: string };
 
 export function MatterHomePage() {
   const { matterId } = useParams();
   const [matter, setMatter] = useState<Matter | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<DocumentOut[]>([]);
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [error, setError] = useState("");
+
+  async function refreshDocuments() {
+    if (!matterId) return;
+    setDocuments(await api<DocumentOut[]>(`/api/matters/${matterId}/documents`));
+  }
 
   useEffect(() => {
     if (!matterId) return;
     Promise.all([
       api<Matter>(`/api/matters/${matterId}`),
-      api<Document[]>(`/api/matters/${matterId}/documents`),
+      api<DocumentOut[]>(`/api/matters/${matterId}/documents`),
       api<TableSummary[]>(`/api/matters/${matterId}/tables`),
     ])
       .then(([m, d, t]) => {
@@ -27,13 +32,6 @@ export function MatterHomePage() {
       .catch((err) => setError(err.message));
   }, [matterId]);
 
-  async function upload(file: File) {
-    const body = new FormData();
-    body.append("file", file);
-    await api(`/api/matters/${matterId}/documents`, { method: "POST", body });
-    setDocuments(await api<Document[]>(`/api/matters/${matterId}/documents`));
-  }
-
   async function createTable() {
     const created = await api<TableDetail>(`/api/matters/${matterId}/tables`, {
       method: "POST",
@@ -43,26 +41,22 @@ export function MatterHomePage() {
     window.location.assign(`/matters/${matterId}/tables/${created.id}`);
   }
 
-  if (!matter) return <p>{error || "Loading matter…"}</p>;
+  if (!matter || !matterId) return <p>{error || "Loading matter…"}</p>;
 
   return (
     <div>
       <h1 className="page-title">{matter.name}</h1>
       <p className="lede">{matter.description}</p>
       <div className="banner">Fictional demonstration data unless you uploaded your own files. Review every extraction.</div>
+      {error && <p role="alert">{error}</p>}
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>Documents</h2>
-        <label className="field">
-          Upload PDF, DOCX, or TXT
-          <input
-            type="file"
-            accept=".pdf,.docx,.txt,application/pdf,text/plain"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) upload(file).catch((err) => setError(err.message));
-            }}
-          />
-        </label>
+        <DocumentUploader
+          matterId={matterId}
+          onUploaded={() => {
+            refreshDocuments().catch((err) => setError(err.message));
+          }}
+        />
         <ul>
           {documents.map((doc) => (
             <li key={doc.id}>

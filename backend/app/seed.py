@@ -264,6 +264,8 @@ def _user(db: Session, email: str, name: str, password: str, role: str) -> User:
 
 
 def _persist_document(db: Session, matter: Matter, admin: User, filename: str, content_type: str, data: bytes) -> Document:
+    import hashlib
+
     relative = f"{matter.id}/{filename}"
     save_bytes(relative, data)
     pages = extract_pages(filename, data)
@@ -272,6 +274,8 @@ def _persist_document(db: Session, matter: Matter, admin: User, filename: str, c
         filename=filename,
         content_type=content_type,
         storage_path=relative,
+        content_hash=hashlib.sha256(data).hexdigest(),
+        byte_size=len(data),
         page_count=len(pages),
         uploaded_by_id=admin.id,
     )
