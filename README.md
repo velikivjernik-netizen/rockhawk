@@ -1,6 +1,6 @@
 # RockHawk Review Tables
 
-Locally hosted **attorney-assistance** workspace for matter-scoped document review. RockHawk extracts typed columns from PDF, DOCX, and TXT files, cites the page it used, and leaves every legal determination to a human. It does **not** make autonomous legal decisions.
+Locally hosted **attorney-assistance** workspace for matter-scoped document review. RockHawk extracts typed columns from matter natives (PDF, Office, HTML/XML, images, mail, and more), cites the page or section it used, and leaves every legal determination to a human. It does **not** make autonomous legal decisions.
 
 This is an original RockHawk design. It is not affiliated with Harvey or any other commercial legal-AI product.
 
@@ -55,7 +55,7 @@ Other fictional demo accounts (same warning):
 
 ## What works
 
-- Upload PDF, DOCX, TXT with page-level citations — **Upload files** (multi-select), **Upload folder**, or drag-and-drop several files/a folder
+- Upload PDF, DOCX, TXT, CSV, XLSX, XLS, HTML, XML, PPTX, PPT, JPG/PNG, VCF, RTF, EML, MSG — **Upload files**, **Upload folder**, or drag-and-drop; page/section citations where the format has them
 - Seven typed AI columns (text, date, boolean, money, enum, plus a conditional text column)
 - Async column runs (`POST /api/tables/{id}/run` via Redis). Verified cells survive bulk reruns unless you opt in
 - Edit, verify, flag, comment, assign

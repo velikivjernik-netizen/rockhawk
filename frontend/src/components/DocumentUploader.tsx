@@ -11,9 +11,33 @@ export type QueueItem = {
   detail: string;
 };
 
-const ACCEPT = ".pdf,.docx,.txt,.md,application/pdf,text/plain";
+export const SUPPORTED_EXTENSIONS = [
+  ".pdf",
+  ".docx",
+  ".txt",
+  ".md",
+  ".csv",
+  ".xlsx",
+  ".xls",
+  ".htm",
+  ".html",
+  ".xml",
+  ".pptx",
+  ".ppt",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".vcf",
+  ".vcard",
+  ".rtf",
+  ".eml",
+  ".msg",
+];
+const ACCEPT = SUPPORTED_EXTENSIONS.join(",") + ",application/pdf,text/plain,text/csv,text/html,image/jpeg,image/png";
 const CONCURRENCY = 4;
 const SKIP_NAMES = new Set([".ds_store", "thumbs.db", "desktop.ini"]);
+const UNSUPPORTED_MESSAGE =
+  "Unsupported file type. Use PDF, DOCX, TXT, CSV, XLSX, XLS, HTM/HTML, XML, PPTX, PPT, JPG/JPEG, PNG, VCF, RTF, EML, or MSG.";
 
 export function displayName(file: File): string {
   const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
@@ -23,7 +47,7 @@ export function displayName(file: File): string {
 export function isSupportedUpload(file: File): boolean {
   const name = file.name.toLowerCase();
   if (SKIP_NAMES.has(name)) return false;
-  return name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".txt") || name.endsWith(".md");
+  return SUPPORTED_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
 export function queueSummary(items: QueueItem[]): string {
@@ -60,7 +84,7 @@ export function DocumentUploader({
         file,
         name,
         status: supported ? "pending" : "error",
-        detail: supported ? "" : "Unsupported file type. Use PDF, DOCX, or TXT.",
+        detail: supported ? "" : UNSUPPORTED_MESSAGE,
       };
     });
     setItems((current) => [...next, ...current]);
@@ -139,7 +163,7 @@ export function DocumentUploader({
         className={`dropzone${dragging ? " active" : ""}`}
         role="button"
         tabIndex={0}
-        aria-label="Drop PDF, DOCX, or TXT files or a folder here to upload"
+        aria-label="Drop supported files or a folder here to upload"
         onDragEnter={(event) => {
           event.preventDefault();
           setDragging(true);
@@ -158,7 +182,8 @@ export function DocumentUploader({
         }}
       >
         Drop multiple files or a folder here. Same as <strong>Upload files</strong> (Shift/Ctrl-click for several) or{" "}
-        <strong>Upload folder</strong>.
+        <strong>Upload folder</strong>. Accepts PDF, DOCX, TXT, CSV, XLSX, XLS, HTML, XML, PPTX, PPT, JPG, PNG, VCF,
+        RTF, EML, and MSG.
       </div>
       <p className="lede" aria-live="polite">
         {items.length ? queueSummary(items) : "No upload in progress."}

@@ -44,7 +44,7 @@ def test_batch_upload_partial_success_and_duplicates(client: TestClient, auth_he
     matter_id, _table_id = _matter_and_table(client, auth_headers)
     good_a = ("batch_a.txt", BytesIO(b"Party A agrees to venue in Oregon.\n"), "text/plain")
     good_b = ("batch_b.txt", BytesIO(b"This letter has no dollar cap.\n"), "text/plain")
-    bad = ("notes.png", BytesIO(b"not-a-document"), "image/png")
+    bad = ("notes.exe", BytesIO(b"not-a-document"), "application/octet-stream")
     batch = client.post(
         f"/api/matters/{matter_id}/documents/batch",
         headers=auth_headers,
@@ -57,7 +57,7 @@ def test_batch_upload_partial_success_and_duplicates(client: TestClient, auth_he
     statuses = {row["filename"]: row["status"] for row in body["results"]}
     assert statuses["batch_a.txt"] == "created"
     assert statuses["batch_b.txt"] == "created"
-    assert statuses["notes.png"] == "error"
+    assert statuses["notes.exe"] == "error"
     assert any(row["document"] and row["document"]["id"] for row in body["results"] if row["status"] == "created")
 
     again = client.post(
@@ -73,7 +73,7 @@ def test_batch_upload_partial_success_and_duplicates(client: TestClient, auth_he
     names = {doc["filename"] for doc in listed}
     assert "batch_a.txt" in names
     assert "batch_b.txt" in names
-    assert "notes.png" not in names
+    assert "notes.exe" not in names
 
     audit = client.get(f"/api/audit?matter_id={matter_id}", headers=auth_headers).json()
     uploaded = [event for event in audit if event["action"] == "document.uploaded"]

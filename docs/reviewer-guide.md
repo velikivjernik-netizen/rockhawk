@@ -4,7 +4,7 @@ RockHawk organizes a matter’s documents into a **review table**. Each row is a
 
 ## Adding documents
 
-On the matter home page, PDF, DOCX, and TXT files can be added in one action:
+On the matter home page, natives can be added in one action. Supported types: **PDF, DOCX, TXT, CSV, XLSX, XLS, HTM/HTML, XML, PPTX, PPT, JPG/JPEG, PNG, VCF, RTF, EML, MSG**.
 
 - **Upload files** — the file picker allows multiple files (Shift/Ctrl-click, or select a range). A single file still works.
 - **Upload folder** — choose a directory; RockHawk queues every supported file inside it (including subfolders).

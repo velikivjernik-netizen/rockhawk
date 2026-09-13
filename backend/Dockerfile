@@ -5,6 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

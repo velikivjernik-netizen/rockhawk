@@ -8,20 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.audit import log_event
 from app.config import get_settings
-from app.ingest import extract_pages
+from app.filetypes import ALLOWED_SUFFIXES, ALLOWED_TYPES, UNSUPPORTED_MESSAGE, suffix_of
+from app.ingest import extract_document
 from app.models import Cell, Document, DocumentPage, Matter, ReviewTable, TableRow, User
 from app.seed import _toy_embedding
 from app.storage import save_bytes
-
-ALLOWED_SUFFIXES = {".pdf", ".docx", ".txt", ".md"}
-ALLOWED_TYPES = {
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "text/plain",
-    "text/markdown",
-    "application/octet-stream",
-    "",
-}
 
 
 class UploadError(Exception):
@@ -49,12 +40,12 @@ def validate_upload(filename: str, content_type: str | None, data: bytes) -> Non
     if len(data) > settings.max_upload_bytes:
         meg = settings.max_upload_bytes // (1024 * 1024)
         raise UploadError(f"File exceeds the {meg} MB size limit")
-    suffix = Path(filename).suffix.lower()
+    suffix = suffix_of(filename)
     if suffix not in ALLOWED_SUFFIXES:
-        raise UploadError("Unsupported file type. Use PDF, DOCX, or TXT.")
+        raise UploadError(UNSUPPORTED_MESSAGE)
     ctype = (content_type or "").split(";")[0].strip().lower()
     if ctype not in ALLOWED_TYPES:
-        raise UploadError(f"Unsupported media type: {content_type or 'unknown'}")
+        raise UploadError(f"Unsupported media type: {content_type or 'unknown'}. {UNSUPPORTED_MESSAGE}")
 
 
 def find_duplicate(db: Session, matter_id: str, digest: str) -> Document | None:
@@ -85,9 +76,10 @@ def ingest_bytes(
             code="duplicate",
         )
     try:
-        pages = extract_pages(Path(relative_name).name or relative_name, data)
+        extraction = extract_document(Path(relative_name).name or relative_name, data)
     except ValueError as exc:
         raise UploadError(str(exc)) from exc
+    pages = extraction.pages or [(1, "")]
     storage_name = relative_name
     if (Path(get_settings().storage_dir) / matter.id / storage_name).exists():
         stem = Path(relative_name).stem
@@ -132,6 +124,14 @@ def ingest_bytes(
         entity_id=document.id,
         actor_id=user.id,
         matter_id=matter.id,
-        payload={"filename": relative_name, "pages": len(pages), "bytes": len(data), "sha256": digest},
+        payload={
+            "filename": relative_name,
+            "pages": len(pages),
+            "bytes": len(data),
+            "sha256": digest,
+            "extractor": extraction.kind,
+            "confidence": extraction.confidence,
+            "notes": extraction.notes,
+        },
     )
     return document

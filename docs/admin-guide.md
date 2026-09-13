@@ -51,6 +51,14 @@ Back up the two data volumes together. Restarting compose does not wipe them.
 
 Keep `AI_PROVIDER=mock` unless you have reviewed the remote model's data-handling policy. Mock mode never leaves the host.
 
+## Document types and OCR
+
+The API/worker image installs **Tesseract** (`tesseract-ocr`, English trained data) so JPG/PNG uploads can produce searchable text. Rebuild Compose after pulling this change (`docker compose up --build`).
+
+If you run the backend on the host without Tesseract, images still ingest; extraction falls back to filename/EXIF and the audit payload records `confidence=low`.
+
+Allowed extensions: PDF, DOCX, TXT, MD, CSV, XLSX, XLS, HTM/HTML, XML, PPTX, PPT, JPG/JPEG, PNG, VCF, RTF, EML, MSG. Other types (for example `.exe`, `.gif`, `.zip`) are rejected per file and do not fail the rest of a folder batch.
+
 ## Audit
 
 `GET /api/audit?matter_id=` is append-only. There is no update or delete API for `audit_events`.
