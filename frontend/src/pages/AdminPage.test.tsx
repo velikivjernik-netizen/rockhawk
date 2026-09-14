@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AdminPage } from "./AdminPage";
+import { AdminPage, formatDiffValue } from "./AdminPage";
 
 const fetchMock = vi.fn();
 
@@ -67,6 +67,12 @@ describe("AdminPage", () => {
     expect(screen.getByLabelText("Search settings")).toBeInTheDocument();
     expect(screen.getByText("Support contact")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Validate & preview draft" })).toBeInTheDocument();
+  });
+
+  it("formats secret diffs as configured / not configured", () => {
+    expect(formatDiffValue({ configured: false })).toBe("Not configured");
+    expect(formatDiffValue({ configured: true, hint: "••••key1", redacted: true })).toBe("Configured (••••key1)");
+    expect(formatDiffValue("llama3.1")).toBe("llama3.1");
   });
 });
 

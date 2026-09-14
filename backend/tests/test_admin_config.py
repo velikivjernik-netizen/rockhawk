@@ -113,7 +113,9 @@ def test_secrets_never_exported_or_echoed(client: TestClient, auth_headers: dict
 
     draft_id = body["id"]
     client.post(f"/api/admin/drafts/{draft_id}/validate", headers=auth_headers)
-    client.post(f"/api/admin/drafts/{draft_id}/preview", headers=auth_headers)
+    previewed = client.post(f"/api/admin/drafts/{draft_id}/preview", headers=auth_headers)
+    assert "sk-super-secret-demo-key" not in previewed.text
+    assert "sk-super-secret-demo-key" not in str(previewed.json())
     applied = client.post(
         f"/api/admin/drafts/{draft_id}/apply",
         headers=auth_headers,
@@ -275,4 +277,5 @@ def test_pin_ai_settings_locks_provider(client: TestClient, auth_headers: dict, 
     )
     assert discovered.status_code == 200
     assert "nomic-embed" in discovered.json()["models"]
+    assert discovered.json()["key_configured"] is True
     assert "sk-live-secret" not in discovered.text

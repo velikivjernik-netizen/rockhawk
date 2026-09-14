@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { DocumentUploader, displayName, isSupportedUpload, queueSummary } from "./DocumentUploader";
+import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { AUTO_CLEAR_MS, DocumentUploader, displayName, isSupportedUpload, queueSummary } from "./DocumentUploader";
 
 describe("DocumentUploader helpers", () => {
   it("accepts production natives and rejects system junk", () => {
@@ -70,5 +70,22 @@ describe("DocumentUploader", () => {
     expect(screen.getByText("bad.gif")).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
     expect(screen.getByText("No upload in progress.")).toBeInTheDocument();
+  });
+
+  it("auto-clears successful rows after a short delay and keeps failures", () => {
+    vi.useFakeTimers();
+    const items = [
+      { id: "1", file: new File(["a"], "ok.txt"), name: "ok.txt", status: "done" as const, detail: "1 page" },
+      { id: "2", file: new File(["b"], "bad.gif"), name: "bad.gif", status: "error" as const, detail: "unsupported" },
+    ];
+    render(<DocumentUploader matterId="m1" onUploaded={() => undefined} initialItems={items} />);
+    expect(screen.getByText("ok.txt")).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(AUTO_CLEAR_MS);
+    });
+    expect(screen.queryByText("ok.txt")).not.toBeInTheDocument();
+    expect(screen.getByText("bad.gif")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

@@ -73,6 +73,7 @@ def discover_models(
         "models": result.get("models") or [],
         "detail": result.get("detail"),
         "ok": result.get("ok"),
+        "key_configured": result.get("key_configured"),
     }
 
 

@@ -477,7 +477,7 @@ export function AdminPage() {
           <ul>
             {(draft.preview?.diffs || []).map((item) => (
               <li key={item.key}>
-                <strong>{item.key}</strong>: {String(item.before)} → {String(item.after)}
+                <strong>{item.key}</strong>: {formatDiffValue(item.before)} → {formatDiffValue(item.after)}
               </li>
             ))}
           </ul>
@@ -492,6 +492,23 @@ export function AdminPage() {
       )}
     </div>
   );
+}
+
+export function formatDiffValue(value: unknown): string {
+  if (value && typeof value === "object") {
+    const rec = value as { configured?: boolean; hint?: string; redacted?: boolean };
+    if ("configured" in rec || "redacted" in rec || "secret_ref" in rec) {
+      if (rec.configured || rec.redacted) return rec.hint ? `Configured (${rec.hint})` : "Configured";
+      return "Not configured";
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "[object]";
+    }
+  }
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
 }
 
 function coerce(def: RegistrySetting, raw: string): unknown {
