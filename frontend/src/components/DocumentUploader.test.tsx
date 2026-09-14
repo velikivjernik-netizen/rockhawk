@@ -54,4 +54,21 @@ describe("DocumentUploader", () => {
     expect(screen.getByRole("button", { name: /Drop supported files or a folder/i })).toBeInTheDocument();
     expect(screen.getByText("No upload in progress.")).toBeInTheDocument();
   });
+
+  it("clears successful queue rows and keeps failures until dismissed", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    const items = [
+      { id: "1", file: new File(["a"], "ok.txt"), name: "ok.txt", status: "done" as const, detail: "1 page" },
+      { id: "2", file: new File(["b"], "bad.gif"), name: "bad.gif", status: "error" as const, detail: "unsupported" },
+    ];
+    render(<DocumentUploader matterId="m1" onUploaded={() => undefined} initialItems={items} />);
+    expect(screen.getByText("ok.txt")).toBeInTheDocument();
+    expect(screen.getByText("bad.gif")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear completed" }));
+    expect(screen.queryByText("ok.txt")).not.toBeInTheDocument();
+    expect(screen.getByText("bad.gif")).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
+    expect(screen.getByText("No upload in progress.")).toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import { DragEvent, KeyboardEvent, useRef, useState } from "react";
+import { DragEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { api, DocumentOut } from "../api/client";
 
 export type QueueStatus = "pending" | "uploading" | "processing" | "done" | "error" | "duplicate";
@@ -10,6 +10,12 @@ export type QueueItem = {
   status: QueueStatus;
   detail: string;
 };
+
+export const AUTO_CLEAR_MS = 4000;
+
+export function isQueueSuccess(status: QueueStatus): boolean {
+  return status === "done" || status === "duplicate";
+}
 
 export const SUPPORTED_EXTENSIONS = [
   ".pdf",
@@ -60,18 +66,54 @@ export function queueSummary(items: QueueItem[]): string {
 export function DocumentUploader({
   matterId,
   onUploaded,
+  initialItems = [],
 }: {
   matterId: string;
   onUploaded: () => void;
+  initialItems?: QueueItem[];
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
-  const [items, setItems] = useState<QueueItem[]>([]);
+  const clearTimers = useRef<Record<string, number>>({});
+  const [items, setItems] = useState<QueueItem[]>(initialItems);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    items.filter((item) => isQueueSuccess(item.status)).forEach((item) => {
+      if (clearTimers.current[item.id]) return;
+      clearTimers.current[item.id] = window.setTimeout(() => {
+        setItems((current) => current.filter((row) => row.id !== item.id));
+        delete clearTimers.current[item.id];
+      }, AUTO_CLEAR_MS);
+    });
+    return () => undefined;
+  }, [items]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(clearTimers.current).forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
   function patch(id: string, update: Partial<QueueItem>) {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...update } : item)));
+  }
+
+  function dismiss(id: string) {
+    window.clearTimeout(clearTimers.current[id]);
+    delete clearTimers.current[id];
+    setItems((current) => current.filter((item) => item.id !== id));
+  }
+
+  function clearCompleted() {
+    setItems((current) => {
+      current.filter((item) => isQueueSuccess(item.status)).forEach((item) => {
+        window.clearTimeout(clearTimers.current[item.id]);
+        delete clearTimers.current[item.id];
+      });
+      return current.filter((item) => !isQueueSuccess(item.status));
+    });
   }
 
   async function enqueue(files: File[]) {
@@ -189,15 +231,29 @@ export function DocumentUploader({
         {items.length ? queueSummary(items) : "No upload in progress."}
       </p>
       {items.length > 0 && (
-        <ul className="upload-queue" aria-label="Upload queue">
-          {items.map((item) => (
-            <li key={item.id} className={`upload-item ${item.status}`}>
-              <span className="upload-name">{item.name}</span>
-              <span className={`status ${item.status}`}>{item.status}</span>
-              {item.detail && <span className="lede"> — {item.detail}</span>}
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="toolbar">
+            {items.some((item) => isQueueSuccess(item.status)) && (
+              <button className="btn ghost" type="button" onClick={clearCompleted}>
+                Clear completed
+              </button>
+            )}
+          </div>
+          <ul className="upload-queue" aria-label="Upload queue">
+            {items.map((item) => (
+              <li key={item.id} className={`upload-item ${item.status}`}>
+                <span className="upload-name">{item.name}</span>
+                <span className={`status ${item.status}`}>{item.status}</span>
+                {item.detail && <span className="lede"> — {item.detail}</span>}
+                {(isQueueSuccess(item.status) || item.status === "error") && (
+                  <button className="btn ghost" type="button" onClick={() => dismiss(item.id)}>
+                    Dismiss
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

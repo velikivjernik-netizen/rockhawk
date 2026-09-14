@@ -4,6 +4,7 @@ import {
   EffectiveSetting,
   RegistrySetting,
 } from "../api/client";
+import { AI_PANEL_KEYS, OpenWebUIPanel, secretStatus } from "../components/OpenWebUIPanel";
 
 type Category = { id: string; label: string };
 type Draft = {
@@ -41,7 +42,6 @@ export function AdminPage() {
   const [revisionNumber, setRevisionNumber] = useState<number | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [prompts, setPrompts] = useState<PromptRow[]>([]);
-  const [roles, setRoles] = useState<{ role: string; model: string; key: string }[]>([]);
   const [category, setCategory] = useState("application");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterId>("all");
@@ -62,14 +62,13 @@ export function AdminPage() {
   const byKey = useMemo(() => Object.fromEntries(registry.map((item) => [item.key, item])), [registry]);
 
   async function load() {
-    const [reg, eff, hist, promptRows, roleRows] = await Promise.all([
+    const [reg, eff, hist, promptRows] = await Promise.all([
       api<{ categories: Category[]; settings: RegistrySetting[] }>("/api/admin/registry"),
       api<{ active_revision_id: string; active_revision_number: number; values: EffectiveSetting[] }>(
         "/api/admin/effective",
       ),
       api<Revision[]>("/api/admin/revisions"),
       api<PromptRow[]>("/api/admin/prompts"),
-      api<{ roles: { role: string; model: string; key: string }[] }>("/api/admin/ai/roles"),
     ]);
     setCategories(reg.categories);
     setRegistry(reg.settings);
@@ -78,7 +77,6 @@ export function AdminPage() {
     setRevisionNumber(eff.active_revision_number);
     setRevisions(hist);
     setPrompts(promptRows);
-    setRoles(roleRows.roles);
   }
 
   useEffect(() => {
@@ -88,7 +86,7 @@ export function AdminPage() {
   const visible = values.filter((item) => {
     const def = byKey[item.key];
     if (category !== "history" && def && def.category !== category) return false;
-    if (category === "history") return false;
+    if (category === "ai" && AI_PANEL_KEYS.has(item.key)) return false;
     const hay = `${item.key} ${def?.label || ""} ${def?.description || ""}`.toLowerCase();
     if (query && !hay.includes(query.toLowerCase())) return false;
     if (filter === "changed" && !(item.key in pending)) return false;
@@ -99,10 +97,7 @@ export function AdminPage() {
   });
 
   function displayValue(item: EffectiveSetting) {
-    if (item.secret) {
-      const hint = item.value && typeof item.value === "object" ? (item.value as { hint?: string }).hint : "••••";
-      return hint || "••••";
-    }
+    if (item.secret) return secretStatus(item);
     if (item.value === null || item.value === undefined || item.value === "") return "—";
     return String(item.value);
   }
@@ -115,6 +110,7 @@ export function AdminPage() {
     for (const [key, raw] of Object.entries(pending)) {
       const def = byKey[key];
       if (!def) continue;
+      if (def.secret && raw.trim() === "") continue;
       changes[key] = coerce(def, raw);
     }
     if (!Object.keys(changes).length) {
@@ -170,21 +166,6 @@ export function AdminPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rollback failed");
     }
-  }
-
-  async function testAi() {
-    const result = await api<{ ok: boolean; detail: string; models?: string[]; provider: string }>(
-      "/api/admin/ai/test-connection",
-      { method: "POST" },
-    );
-    setAiResult(`${result.provider}: ${result.detail}`);
-    if (result.models) setModels(result.models);
-  }
-
-  async function discover() {
-    const result = await api<{ models: string[]; detail?: string }>("/api/admin/ai/models");
-    setModels(result.models || []);
-    setAiResult(result.detail || `Discovered ${result.models?.length || 0} models`);
   }
 
   async function savePrompt(event: FormEvent) {
@@ -266,7 +247,20 @@ export function AdminPage() {
 
           {category !== "history" && (
             <form onSubmit={startApply}>
-              <div className="table-wrap" role="region" aria-label="Settings">
+              {category === "ai" && (
+                <OpenWebUIPanel
+                  values={values}
+                  pending={pending}
+                  setPending={setPending}
+                  models={models}
+                  setModels={setModels}
+                  aiResult={aiResult}
+                  setAiResult={setAiResult}
+                  onError={setError}
+                />
+              )}
+              {visible.length > 0 && (
+                <div className="table-wrap" role="region" aria-label="Settings">
                 <table className="review admin-table">
                   <thead>
                     <tr>
@@ -335,38 +329,14 @@ export function AdminPage() {
                     })}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              )}
               <div className="toolbar">
                 <button className="btn" type="submit">
                   Validate & preview draft
                 </button>
               </div>
             </form>
-          )}
-
-          {category === "ai" && (
-            <section className="card" style={{ marginTop: 16 }}>
-              <h2>AI probes</h2>
-              <p className="lede">Test Connection and discovery never send matter documents.</p>
-              <div className="toolbar">
-                <button className="btn secondary" type="button" onClick={() => testAi().catch((err) => setError(err.message))}>
-                  Test Connection
-                </button>
-                <button className="btn ghost" type="button" onClick={() => discover().catch((err) => setError(err.message))}>
-                  Discover models
-                </button>
-              </div>
-              {aiResult && <p role="status">{aiResult}</p>}
-              {models.length > 0 && <p className="lede">Models: {models.join(", ")}</p>}
-              <h3>Role assignments</h3>
-              <ul>
-                {roles.map((item) => (
-                  <li key={item.role}>
-                    <strong>{item.role}</strong> → {item.model || "(default chat model)"} ({item.key})
-                  </li>
-                ))}
-              </ul>
-            </section>
           )}
 
           {category === "prompts" && (

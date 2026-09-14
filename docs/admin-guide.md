@@ -55,11 +55,14 @@ Back up the two data volumes together. Restarting compose does not wipe them.
 
 ## Open WebUI
 
-1. Run Open WebUI (or Ollama) with an OpenAI-compatible `/v1` endpoint
-2. Set `AI_PROVIDER=openai_compatible` and `OPENAI_COMPATIBLE_BASE_URL`
-3. Restart `api` and `worker`
+Configure from **Administration → 2. AI providers & model roles** (no `.env` edit required unless you set `ROCKHAWK_PIN_AI_SETTINGS=true`):
 
-Keep `AI_PROVIDER=mock` unless you have reviewed the remote model's data-handling policy. Mock mode never leaves the host.
+1. Active provider: `openai_compatible`
+2. Base URL: Open WebUI’s `/v1` root (Compose on Linux: `http://host.docker.internal:<port>/v1` or `http://172.17.0.1:<port>/v1`)
+3. API key → Test Connection → Discover models → assign the six roles
+4. Validate & preview → confirm apply
+
+Keep provider `mock` until you have reviewed the remote model’s data-handling policy. Mock mode never leaves the host.
 
 ## Document types and OCR
 

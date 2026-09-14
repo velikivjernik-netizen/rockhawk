@@ -15,6 +15,15 @@ MODEL_ROLES = (
     "embeddings",
 )
 
+ROLE_LABELS = {
+    "orchestrator": "Orchestrator",
+    "triage": "Triage",
+    "extraction": "Coding / extraction",
+    "qc": "QC",
+    "synthesis": "Synthesis",
+    "embeddings": "Embeddings",
+}
+
 
 @dataclass(frozen=True)
 class SettingDef:
@@ -32,6 +41,7 @@ class SettingDef:
     enum_options: tuple[str, ...] | None = None
     floor: Any = None
     env_key: str | None = None
+    env_mode: str = "pin"
     todo: bool = False
     tags: tuple[str, ...] = field(default_factory=tuple)
 
@@ -51,6 +61,7 @@ class SettingDef:
             "enum_options": list(self.enum_options) if self.enum_options else None,
             "floor": self.floor,
             "env_key": self.env_key,
+            "env_mode": self.env_mode,
             "todo": self.todo,
             "tags": list(self.tags),
         }
@@ -103,26 +114,28 @@ SETTINGS: tuple[SettingDef, ...] = (
         category="ai",
         category_label="2. AI providers & model roles",
         label="AI provider",
-        description="mock stays on-box. openai_compatible talks to Open WebUI or any /v1 endpoint.",
+        description="mock stays on-box. openai_compatible talks to Open WebUI or any /v1 endpoint. Admin can switch unless ROCKHAWK_PIN_AI_SETTINGS is set.",
         value_type="enum",
         default="mock",
         risk="high",
         editability="confirm",
         enum_options=("mock", "openai_compatible"),
         env_key="AI_PROVIDER",
+        env_mode="fallback",
         tags=("ai",),
     ),
     _s(
         key="ai.openai_compatible.base_url",
         category="ai",
         category_label="2. AI providers & model roles",
-        label="OpenAI-compatible base URL",
-        description="Open WebUI / vLLM / Ollama /v1 root. Test Connection never sends matter documents.",
+        label="Open WebUI / OpenAI-compatible base URL",
+        description="Open WebUI / vLLM / Ollama /v1 root (example: http://host.docker.internal:8080/v1). Test Connection never sends matter documents.",
         value_type="string",
-        default="http://localhost:8080/v1",
+        default="http://host.docker.internal:8080/v1",
         risk="medium",
         editability="editable",
         env_key="OPENAI_COMPATIBLE_BASE_URL",
+        env_mode="fallback",
         tags=("ai",),
     ),
     _s(
@@ -130,13 +143,14 @@ SETTINGS: tuple[SettingDef, ...] = (
         category="ai",
         category_label="2. AI providers & model roles",
         label="Provider API key",
-        description="Stored only as a secret reference. Never returned after submit.",
+        description="Stored only as a secret reference. GET/diff/audit/export show configured vs not configured, never the raw key.",
         value_type="secret",
         default="",
         risk="high",
         editability="confirm",
         secret=True,
         env_key="OPENAI_COMPATIBLE_API_KEY",
+        env_mode="fallback",
         tags=("ai", "secret"),
     ),
     _s(
@@ -144,12 +158,13 @@ SETTINGS: tuple[SettingDef, ...] = (
         category="ai",
         category_label="2. AI providers & model roles",
         label="Default chat model",
-        description="Fallback model when a role has no independent assignment.",
+        description="Fallback model when a role has no independent assignment. Pick from Discover models or type an id.",
         value_type="string",
         default="llama3.1",
         risk="medium",
         editability="editable",
         env_key="OPENAI_COMPATIBLE_MODEL",
+        env_mode="fallback",
         tags=("ai",),
     ),
     *[
@@ -157,8 +172,8 @@ SETTINGS: tuple[SettingDef, ...] = (
             key=f"ai.role.{role}",
             category="ai",
             category_label="2. AI providers & model roles",
-            label=f"{role.replace('_', ' ').title()} model",
-            description=f"Independent model id for the {role} role. Empty inherits the default chat model.",
+            label=f"{ROLE_LABELS[role]} model",
+            description=f"Independent model id for the {ROLE_LABELS[role].lower()} role. Empty inherits the default chat model.",
             value_type="string",
             default="",
             risk="medium",

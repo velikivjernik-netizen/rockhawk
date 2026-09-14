@@ -325,3 +325,9 @@ class PromptVersionIn(BaseModel):
     prompt_key: str
     body: str = Field(min_length=8)
     note: str = ""
+
+
+class AiProbeIn(BaseModel):
+    target: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None

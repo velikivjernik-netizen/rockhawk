@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.access import require_admin
 from app.ai.admin_ops import discover_models, test_connection
-from app.config_registry import CATEGORIES, REGISTRY
+from app.config_registry import CATEGORIES, MODEL_ROLES, REGISTRY, ROLE_LABELS
 from app.config_service import (
     active_revision,
     all_effective,
@@ -36,6 +36,7 @@ from app.schemas import (
     AdminDraftIn,
     AdminImportIn,
     AdminRollbackIn,
+    AiProbeIn,
     PromptVersionIn,
 )
 
@@ -179,26 +180,50 @@ def import_config(payload: AdminImportIn, db: Session = Depends(get_db), user: U
 
 
 @router.post("/ai/test-connection")
-def ai_test(db: Session = Depends(get_db), user: User = Depends(_admin)) -> dict:
+def ai_test(
+    payload: AiProbeIn | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(_admin),
+) -> dict:
     ensure_baseline(db, user.id)
-    return test_connection(db)
+    body = payload or AiProbeIn()
+    result = test_connection(db, target=body.target, base_url=body.base_url, api_key=body.api_key)
+    return _strip_probe_secrets(result)
 
 
 @router.get("/ai/models")
 def ai_models(db: Session = Depends(get_db), user: User = Depends(_admin)) -> dict:
     ensure_baseline(db, user.id)
-    return discover_models(db)
+    return _strip_probe_secrets(discover_models(db))
+
+
+@router.post("/ai/models")
+def ai_models_probe(
+    payload: AiProbeIn | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(_admin),
+) -> dict:
+    ensure_baseline(db, user.id)
+    body = payload or AiProbeIn()
+    return _strip_probe_secrets(
+        discover_models(db, target=body.target or "openai_compatible", base_url=body.base_url, api_key=body.api_key)
+    )
 
 
 @router.get("/ai/roles")
 def ai_roles(db: Session = Depends(get_db), user: User = Depends(_admin)) -> dict:
     ensure_baseline(db, user.id)
-    from app.config_registry import MODEL_ROLES
     from app.ai.admin_ops import resolve_role_model
 
     return {
         "roles": [
-            {"role": role, "model": resolve_role_model(db, role), "key": f"ai.role.{role}"} for role in MODEL_ROLES
+            {
+                "role": role,
+                "label": ROLE_LABELS[role],
+                "model": resolve_role_model(db, role),
+                "key": f"ai.role.{role}",
+            }
+            for role in MODEL_ROLES
         ]
     }
 
@@ -257,12 +282,17 @@ def _redact_proposed(proposed: dict) -> dict:
     for key, value in proposed.items():
         definition = REGISTRY.get(key)
         if definition and definition.secret:
-            if isinstance(value, dict) and value.get("secret_ref"):
-                clean[key] = {"secret_ref": value["secret_ref"], "hint": value.get("hint", "••••")}
-            else:
-                clean[key] = {"redacted": True}
+            clean[key] = {"configured": True, "redacted": True}
         else:
             clean[key] = value
+    return clean
+
+
+def _strip_probe_secrets(payload: dict) -> dict:
+    clean = dict(payload)
+    clean.pop("api_key", None)
+    if "key_configured" not in clean:
+        clean["key_configured"] = False
     return clean
 
 

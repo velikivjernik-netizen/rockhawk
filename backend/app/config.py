@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     storage_dir: str = "./data/storage"
 
     ai_provider: str = "mock"
-    openai_compatible_base_url: str = "http://localhost:8080/v1"
+    openai_compatible_base_url: str = "http://host.docker.internal:8080/v1"
     openai_compatible_api_key: str = ""
     openai_compatible_model: str = "llama3.1"
 

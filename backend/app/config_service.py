@@ -47,9 +47,7 @@ class EffectiveValue:
 
     def public_value(self) -> Any:
         if self.secret:
-            if isinstance(self.value, dict) and self.value.get("secret_ref"):
-                return {"secret_ref": self.value["secret_ref"], "hint": self.value.get("hint", "••••")}
-            return None
+            return _public_secret(self.value)
         return self.value
 
     def to_dict(self) -> dict[str, Any]:
@@ -118,13 +116,47 @@ def _revision_map(revision: ConfigurationRevision | None) -> dict[str, Any]:
     return {row.key: row.value_json for row in revision.values}
 
 
-def _env_override(definition: SettingDef) -> tuple[bool, Any]:
-    if not definition.env_key:
-        return False, None
-    if definition.env_key not in os.environ:
+def _ai_settings_pinned() -> bool:
+    return os.environ.get("ROCKHAWK_PIN_AI_SETTINGS", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_present(definition: SettingDef) -> tuple[bool, Any]:
+    if not definition.env_key or definition.env_key not in os.environ:
         return False, None
     raw = os.environ[definition.env_key]
+    if definition.secret and not str(raw).strip():
+        return False, None
     return True, _coerce(definition, raw)
+
+
+def _env_is_pinned(definition: SettingDef) -> bool:
+    has_env, _ = _env_present(definition)
+    if not has_env:
+        return False
+    mode = getattr(definition, "env_mode", "pin")
+    if mode == "fallback":
+        return _ai_settings_pinned()
+    return True
+
+
+def _env_override(definition: SettingDef) -> tuple[bool, Any]:
+    """True when environment should win over an admin revision (bootstrap pin)."""
+    if not _env_is_pinned(definition):
+        return False, None
+    return _env_present(definition)
+
+
+def _public_secret(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        if value.get("secret_ref") or value.get("configured") or value.get("hint") or value.get("source") == "env":
+            hint = str(value.get("hint") or "••••")
+            if hint in {"", "••••"} and not value.get("secret_ref") and not value.get("configured"):
+                return {"configured": False, "hint": None}
+            return {"configured": True, "hint": hint, "secret_ref": value.get("secret_ref")}
+        return {"configured": False, "hint": None}
+    if value in (None, ""):
+        return {"configured": False, "hint": None}
+    return {"configured": True, "hint": "••••"}
 
 
 def _coerce(definition: SettingDef, raw: Any) -> Any:
@@ -145,13 +177,17 @@ def _coerce(definition: SettingDef, raw: Any) -> Any:
 
 def get_effective(db: Session, key: str) -> EffectiveValue:
     definition = get_definition(key)
-    has_env, env_value = _env_override(definition)
+    pinned, pin_value = _env_override(definition)
+    has_env, env_value = _env_present(definition)
     revision = active_revision(db)
     stored = _revision_map(revision)
-    if has_env:
-        value = env_value
-        if definition.secret and env_value:
-            value = {"hint": secret_hint(str(env_value)), "source": "env"}
+    if pinned:
+        value = pin_value
+        if definition.secret:
+            value = {"configured": True, "hint": secret_hint(str(pin_value)), "source": "env"} if pin_value else {
+                "configured": False,
+                "hint": None,
+            }
         return EffectiveValue(
             key=key,
             value=value,
@@ -168,6 +204,23 @@ def get_effective(db: Session, key: str) -> EffectiveValue:
             value=stored[key],
             source="global_admin",
             overridden=stored[key] != definition.default,
+            restart_required=definition.restart_required,
+            secret=definition.secret,
+            editability=definition.editability,
+            risk=definition.risk,
+        )
+    if has_env:
+        value = env_value
+        if definition.secret:
+            value = {"configured": True, "hint": secret_hint(str(env_value)), "source": "env"} if env_value else {
+                "configured": False,
+                "hint": None,
+            }
+        return EffectiveValue(
+            key=key,
+            value=value,
+            source="env",
+            overridden=True,
             restart_required=definition.restart_required,
             secret=definition.secret,
             editability=definition.editability,
@@ -199,9 +252,9 @@ def effective_bool(db: Session, key: str) -> bool:
 def effective_raw(db: Session, key: str) -> Any:
     """Runtime value including decrypted secrets. Never return this from an API."""
     definition = get_definition(key)
-    has_env, env_value = _env_override(definition)
-    if has_env:
-        return env_value
+    pinned, pin_value = _env_override(definition)
+    if pinned:
+        return pin_value
     stored = _revision_map(active_revision(db))
     if key in stored:
         value = stored[key]
@@ -209,6 +262,9 @@ def effective_raw(db: Session, key: str) -> Any:
             ref = db.get(SecretReference, value["secret_ref"])
             return decrypt_secret(ref.ciphertext) if ref else ""
         return value
+    has_env, env_value = _env_present(definition)
+    if has_env:
+        return env_value
     return definition.default
 
 
@@ -245,7 +301,7 @@ def validate_draft(db: Session, draft: ConfigurationDraft) -> dict[str, Any]:
         if definition.editability in {"readonly", "bootstrap"}:
             errors.append(f"{key} is {definition.editability} and cannot be changed here")
             continue
-        if _env_override(definition)[0]:
+        if _env_is_pinned(definition):
             errors.append(f"{key} is pinned by environment {definition.env_key}")
             continue
         try:
@@ -525,10 +581,12 @@ def _public_proposed(db: Session, definition: SettingDef, raw: Any) -> Any:
     if definition.secret:
         if isinstance(raw, dict) and raw.get("secret_ref"):
             ref = db.get(SecretReference, raw["secret_ref"])
-            return {"secret_ref": raw["secret_ref"], "hint": ref.hint if ref else "••••"}
+            return {"configured": True, "hint": ref.hint if ref else "••••"}
         if isinstance(raw, dict) and "__plain" in raw:
-            return {"hint": secret_hint(str(raw["__plain"]))}
-        return {"hint": secret_hint(str(raw))}
+            return {"configured": True, "hint": secret_hint(str(raw["__plain"]))}
+        if raw in ("", None):
+            return {"configured": False, "hint": None}
+        return {"configured": True, "hint": secret_hint(str(raw))}
     try:
         return _coerce(definition, raw)
     except (TypeError, ValueError):

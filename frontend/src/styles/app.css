@@ -226,6 +226,7 @@ table.review th {
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
+.model-picker { display: grid; gap: 6px; }
 .upload-name { font-weight: 500; }
 .upload-item.done .status,
 .status.done { color: var(--ok); }

@@ -37,6 +37,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     command: >
@@ -53,6 +55,8 @@ services:
       STORAGE_DIR: /data/storage
     volumes:
       - storage_data:/data/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

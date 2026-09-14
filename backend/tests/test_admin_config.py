@@ -159,7 +159,8 @@ def test_ai_test_connection_and_prompt_lineage(client: TestClient, auth_headers:
 def test_import_dry_run_and_env_pin(client: TestClient, auth_headers: dict) -> None:
     effective = client.get("/api/admin/effective", headers=auth_headers).json()
     provider = next(item for item in effective["values"] if item["key"] == "ai.provider")
-    assert provider["source"] == "bootstrap"
+    assert provider["editability"] != "bootstrap"
+    assert provider["source"] in {"env", "default", "global_admin"}
 
     draft = client.post(
         "/api/admin/drafts",
@@ -167,7 +168,7 @@ def test_import_dry_run_and_env_pin(client: TestClient, auth_headers: dict) -> N
         json={"changes": {"ai.provider": "openai_compatible"}, "expected_revision_id": effective["active_revision_id"]},
     )
     validated = client.post(f"/api/admin/drafts/{draft.json()['id']}/validate", headers=auth_headers)
-    assert validated.json()["validation"]["ok"] is False
+    assert validated.json()["validation"]["ok"] is True
 
     exported = client.get("/api/admin/export", headers=auth_headers).json()
     dry = client.post("/api/admin/import", headers=auth_headers, json={"bundle": exported, "dry_run": True})
@@ -175,3 +176,103 @@ def test_import_dry_run_and_env_pin(client: TestClient, auth_headers: dict) -> N
     assert dry.json()["dry_run"] is True
     live = client.post("/api/admin/import", headers=auth_headers, json={"bundle": exported, "dry_run": False})
     assert live.status_code == 400
+
+
+def test_ai_provider_apply_and_secret_status(client: TestClient, auth_headers: dict) -> None:
+    effective = client.get("/api/admin/effective", headers=auth_headers).json()
+    key_row = next(item for item in effective["values"] if item["key"] == "ai.openai_compatible.api_key")
+    assert key_row["secret"] is True
+    assert key_row["value"]["configured"] is False
+    revision_id = effective["active_revision_id"]
+    draft = client.post(
+        "/api/admin/drafts",
+        headers=auth_headers,
+        json={
+            "changes": {
+                "ai.provider": "openai_compatible",
+                "ai.openai_compatible.base_url": "http://host.docker.internal:3000/v1",
+                "ai.role.extraction": "llama3.1",
+            },
+            "expected_revision_id": revision_id,
+        },
+    )
+    draft_id = draft.json()["id"]
+    assert client.post(f"/api/admin/drafts/{draft_id}/validate", headers=auth_headers).json()["validation"]["ok"] is True
+    client.post(f"/api/admin/drafts/{draft_id}/preview", headers=auth_headers)
+    applied = client.post(
+        f"/api/admin/drafts/{draft_id}/apply",
+        headers=auth_headers,
+        json={"reason": "Point extraction at Open WebUI", "confirm": True, "expected_revision_id": revision_id},
+    )
+    assert applied.status_code == 200, applied.text
+    after = client.get("/api/admin/effective", headers=auth_headers).json()
+    provider = next(item for item in after["values"] if item["key"] == "ai.provider")
+    assert provider["value"] == "openai_compatible"
+    assert provider["source"] == "global_admin"
+    extraction = next(item for item in after["values"] if item["key"] == "ai.role.extraction")
+    assert extraction["value"] == "llama3.1"
+
+
+def test_pin_ai_settings_locks_provider(client: TestClient, auth_headers: dict, monkeypatch) -> None:
+    monkeypatch.setenv("ROCKHAWK_PIN_AI_SETTINGS", "true")
+    effective = client.get("/api/admin/effective", headers=auth_headers).json()
+    provider = next(item for item in effective["values"] if item["key"] == "ai.provider")
+    assert provider["editability"] == "bootstrap"
+    draft = client.post(
+        "/api/admin/drafts",
+        headers=auth_headers,
+        json={"changes": {"ai.provider": "openai_compatible"}, "expected_revision_id": effective["active_revision_id"]},
+    )
+    validated = client.post(f"/api/admin/drafts/{draft.json()['id']}/validate", headers=auth_headers)
+    assert validated.json()["validation"]["ok"] is False
+    assert any("pinned" in err.lower() for err in validated.json()["validation"]["errors"])
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {"data": [{"id": "llama3.1"}, {"id": "nomic-embed"}]}
+
+        def raise_for_status(self):
+            return None
+
+    class _Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url, headers=None):
+            assert "sk-live-secret" not in url
+            assert headers["Authorization"] == "Bearer sk-live-secret"
+            return _Resp()
+
+        def post(self, *args, **kwargs):
+            raise AssertionError("chat ping should not run when /models succeeds")
+
+    monkeypatch.setattr("app.ai.admin_ops.httpx.Client", _Client)
+    ping = client.post(
+        "/api/admin/ai/test-connection",
+        headers=auth_headers,
+        json={
+            "target": "openai_compatible",
+            "base_url": "http://open-webui.example/v1",
+            "api_key": "sk-live-secret",
+        },
+    )
+    assert ping.status_code == 200, ping.text
+    body = ping.json()
+    assert body["ok"] is True
+    assert "sk-live-secret" not in str(body)
+    assert "llama3.1" in body["models"]
+    discovered = client.post(
+        "/api/admin/ai/models",
+        headers=auth_headers,
+        json={"target": "openai_compatible", "base_url": "http://open-webui.example/v1", "api_key": "sk-live-secret"},
+    )
+    assert discovered.status_code == 200
+    assert "nomic-embed" in discovered.json()["models"]
+    assert "sk-live-secret" not in discovered.text

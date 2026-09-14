@@ -78,7 +78,7 @@ Other fictional demo accounts (same warning):
 AI_PROVIDER=mock
 ```
 
-Mock extraction reads only uploaded page text. If the page does not support the column, the cell is `Not found`.
+Mock extraction reads only uploaded page text. If the page does not support the column, the cell is `Not found`. Admins can switch to Open WebUI from **Administration → 2. AI providers & model roles** without editing `.env`, unless `ROCKHAWK_PIN_AI_SETTINGS=true`.
 
 ```env
 AI_PROVIDER=openai_compatible
@@ -87,7 +87,7 @@ OPENAI_COMPATIBLE_API_KEY=
 OPENAI_COMPATIBLE_MODEL=llama3.1
 ```
 
-Point `OPENAI_COMPATIBLE_BASE_URL` at Open WebUI, vLLM, Ollama, or any `/v1/chat/completions` server. The prompt forbids invention; if the remote call fails, RockHawk falls back to the mock extractor.
+Point `OPENAI_COMPATIBLE_BASE_URL` at Open WebUI, vLLM, Ollama, or any `/v1/chat/completions` server. From Compose on Linux use `http://host.docker.internal:<port>/v1` (host-gateway) or `http://172.17.0.1:<port>/v1`, not `localhost` inside the api/worker containers. The prompt forbids invention; if the remote call fails, RockHawk falls back to the mock extractor.
 
 ## SQLite local demo (no Docker)
 
